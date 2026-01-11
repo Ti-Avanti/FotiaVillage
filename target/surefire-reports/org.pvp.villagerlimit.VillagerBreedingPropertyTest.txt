@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: org.pvp.villagerlimit.VillagerBreedingPropertyTest
 -------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 2, Time elapsed: 0.041 s -- in org.pvp.villagerlimit.VillagerBreedingPropertyTest
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 2, Time elapsed: 0.017 s -- in org.pvp.villagerlimit.VillagerBreedingPropertyTest

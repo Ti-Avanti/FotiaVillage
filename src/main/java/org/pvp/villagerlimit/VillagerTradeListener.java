@@ -120,7 +120,7 @@ public class VillagerTradeListener implements Listener {
         }
         
         // 检查绿宝石消耗
-        if (config.isEconomyBalanceEnabled() && !economyManager.hasEnoughEmeralds(player, result)) {
+        if (config.isEconomyBalanceEnabled() && !economyManager.hasEnoughEmeralds(player, result, merchantInventory)) {
             event.setCancelled(true);
             int required = economyManager.getRequiredEmeralds(result);
             String message;

@@ -69,12 +69,23 @@ public class ZombieVillagerCureListener implements Listener {
             if (debug) {
                 plugin.getLogger().info("[寿命调试] 准备设置村民寿命");
             }
+            // 增加延迟时间到10tick（0.5秒），确保村民完全生成
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (event.getTransformedEntity() instanceof Villager villager) {
+                    // 验证村民是否存在且有效
+                    if (!villager.isValid() || villager.isDead()) {
+                        if (debug) {
+                            plugin.getLogger().warning("[寿命警告] 村民无效或已死亡，无法设置寿命");
+                        }
+                        return;
+                    }
+                    
                     VillagerLimitConfig cfg = plugin.getLimitConfig();
                     int lifespanDays = cfg.getVillagerLifespanDays();
                     if (debug) {
                         plugin.getLogger().info("[寿命调试] 设置村民寿命: " + lifespanDays + " 天");
+                        plugin.getLogger().info("[寿命调试] 村民UUID: " + villager.getUniqueId());
+                        plugin.getLogger().info("[寿命调试] 村民位置: " + villager.getLocation());
                     }
                     plugin.getLifespanManager().setVillagerLifespan(villager, lifespanDays);
                     
@@ -100,8 +111,12 @@ public class ZombieVillagerCureListener implements Listener {
                                 .forEach(player -> player.sendMessage(message));
                         }
                     }
+                } else {
+                    if (debug) {
+                        plugin.getLogger().warning("[寿命警告] 转换后的实体不是村民类型");
+                    }
                 }
-            }, 1L);
+            }, 10L); // 从1L增加到10L
         }
     }
     

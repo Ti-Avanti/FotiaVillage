@@ -28,14 +28,25 @@ public class VillagerSpawnListener implements Listener {
             return;
         }
         
+        // 如果是治愈生成，允许通过（由 ZombieVillagerCureListener 处理）
+        if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CURED) {
+            if (config.isDebugEnabled()) {
+                plugin.getLogger().info("[生成调试] 检测到治愈村民生成，允许通过");
+            }
+            return;
+        }
+        
         // 处理繁殖生成
         if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.BREEDING) {
             handleBreedingVillager(event, config);
             return;
         }
         
-        // 如果配置为禁止自然生成，则取消所有自然生成
+        // 如果配置为禁止自然生成，则取消所有其他自然生成
         if (config.isBlockNaturalSpawn()) {
+            if (config.isDebugEnabled()) {
+                plugin.getLogger().info("[生成调试] 阻止自然生成，原因: " + event.getSpawnReason());
+            }
             event.setCancelled(true);
         }
     }

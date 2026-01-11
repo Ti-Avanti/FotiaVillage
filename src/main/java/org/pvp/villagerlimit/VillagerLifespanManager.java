@@ -40,6 +40,7 @@ public class VillagerLifespanManager {
         startLifespanCheckTask();
         startDisplayUpdateTask();
         startAutoAddLifespanTask();
+        startOrphanDisplayCleanupTask();
     }
     
     /**
@@ -370,6 +371,11 @@ public class VillagerLifespanManager {
             for (var world : plugin.getServer().getWorlds()) {
                 for (var entity : world.getEntities()) {
                     if (entity instanceof Villager villager) {
+                        // 验证村民是否有效
+                        if (!villager.isValid() || villager.isDead()) {
+                            continue;
+                        }
+                        
                         totalVillagers++;
                         
                         // 检查是否已有寿命
@@ -395,5 +401,102 @@ public class VillagerLifespanManager {
             plugin.getLogger().severe("[寿命系统] 自动添加寿命时发生错误:");
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * 启动孤儿显示实体清理任务
+     */
+    private void startOrphanDisplayCleanupTask() {
+        plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+            int cleanedCount = cleanupOrphanDisplays();
+            if (cleanedCount > 0) {
+                plugin.getLogger().info("[寿命系统] 清理了 " + cleanedCount + " 个孤儿显示实体");
+            }
+        }, 20L * 60 * 5, 20L * 60 * 5); // 每5分钟清理一次
+        
+        plugin.getLogger().info("[寿命系统] 孤儿显示实体清理任务已启动，清理间隔: 5 分钟");
+    }
+    
+    /**
+     * 清理孤儿显示实体（没有对应村民的显示实体）
+     * @return 清理的数量
+     */
+    private int cleanupOrphanDisplays() {
+        int cleanedCount = 0;
+        boolean debug = plugin.getLimitConfig().isDebugEnabled();
+        
+        try {
+            // 收集所有有效的村民UUID
+            var validVillagerUUIDs = new java.util.HashSet<UUID>();
+            for (var world : plugin.getServer().getWorlds()) {
+                for (var entity : world.getEntities()) {
+                    if (entity instanceof Villager villager && villager.isValid() && !villager.isDead()) {
+                        validVillagerUUIDs.add(villager.getUniqueId());
+                    }
+                }
+            }
+            
+            // 清理缓存中的孤儿显示实体
+            var iterator = displayCache.entrySet().iterator();
+            while (iterator.hasNext()) {
+                var entry = iterator.next();
+                UUID villagerUUID = entry.getKey();
+                Entity display = entry.getValue();
+                
+                // 检查村民是否还存在
+                if (!validVillagerUUIDs.contains(villagerUUID)) {
+                    if (debug) {
+                        plugin.getLogger().info("[寿命调试] 清理孤儿显示实体: " + display.getUniqueId() + 
+                            " (村民UUID: " + villagerUUID + ")");
+                    }
+                    displayAdapter.removeDisplay(display);
+                    iterator.remove();
+                    cleanedCount++;
+                }
+            }
+            
+            // 扫描世界中的所有显示实体，清理没有对应村民的
+            for (var world : plugin.getServer().getWorlds()) {
+                for (var entity : world.getEntities()) {
+                    // 检查是否是显示实体（ArmorStand 或 TextDisplay）
+                    if (displayAdapter.isValid(entity)) {
+                        // 检查是否有乘客（村民）
+                        var passengers = entity.getPassengers();
+                        if (passengers.isEmpty()) {
+                            // 没有乘客，可能是孤儿显示实体
+                            if (debug) {
+                                plugin.getLogger().info("[寿命调试] 发现无乘客的显示实体: " + entity.getUniqueId());
+                            }
+                            displayAdapter.removeDisplay(entity);
+                            cleanedCount++;
+                        } else {
+                            // 检查乘客是否是有效的村民
+                            boolean hasValidVillager = false;
+                            for (var passenger : passengers) {
+                                if (passenger instanceof Villager villager && 
+                                    villager.isValid() && !villager.isDead()) {
+                                    hasValidVillager = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!hasValidVillager) {
+                                if (debug) {
+                                    plugin.getLogger().info("[寿命调试] 发现无有效村民乘客的显示实体: " + entity.getUniqueId());
+                                }
+                                displayAdapter.removeDisplay(entity);
+                                cleanedCount++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            plugin.getLogger().severe("[寿命系统] 清理孤儿显示实体时发生错误:");
+            e.printStackTrace();
+        }
+        
+        return cleanedCount;
     }
 }
