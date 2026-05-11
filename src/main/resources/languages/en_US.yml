@@ -1,95 +1,108 @@
-# Villagerlimit English Language File
+prefix: "<!i><gold>[FotiaVillage]</gold> "
+no-permission: "<!i><red>You do not have permission to use this command.</red>"
+player-only: "<!i><red>This command can only be used by players.</red>"
+player-not-found: "<!i><red>Player is not online or has no record.</red>"
+reload-start: "<!i><yellow>Reloading configuration...</yellow>"
+reload-success: "<!i><green>Configuration reloaded.</green>"
+reload-failed: "<!i><red>Reload failed: {error}</red>"
+unknown-command: "<!i><red>Unknown subcommand: {command}</red>"
 
-# Common Messages
-prefix: "&6[VillagerLimit] "
-no-permission: "&cYou don't have permission to use this command!"
-player-not-found: "&cPlayer is not online!"
-reload-success: "&aConfiguration reloaded!"
-reload-failed: "&cError reloading config: {0}"
+status:
+  connected: "connected"
+  disconnected: "disconnected"
 
-# Villager Limits
+time:
+  duration-days-hours: "{days}d {hours}h"
+  duration-hours-minutes: "{hours}h {minutes}m"
+  duration-minutes-seconds: "{minutes}m {seconds}s"
+  duration-seconds: "{seconds}s"
+  ago-days: "{days}d ago"
+  ago-hours: "{hours}h ago"
+  ago-minutes: "{minutes}m ago"
+  ago-seconds: "{seconds}s ago"
+
+help:
+  title: "<!i><gold>========== <yellow>FotiaVillage Commands</yellow> ==========</gold>"
+  reload: "<!i><yellow>/fv reload</yellow> <gray>- Reload config and language</gray>"
+  stats: "<!i><yellow>/fv stats [player]</yellow> <gray>- View trade stats</gray>"
+  top: "<!i><yellow>/fv top</yellow> <gray>- View trade leaderboard</gray>"
+  admin: "<!i><yellow>/fv admin reset|clear|info</yellow> <gray>- Manage trade data</gray>"
+  perf: "<!i><yellow>/fv perf [memory|database|tracker|cleanup]</yellow> <gray>- View performance info</gray>"
+  lifespan: "<!i><yellow>/fv lifespan check|add|list</yellow> <gray>- Manage villager lifespan</gray>"
+  kill: "<!i><yellow>/fv kill</yellow> <gray>- Remove all loaded villagers</gray>"
+
 villager:
-  limit-reached: "&cVillager limit reached in this area!"
-  spawn-blocked: "&cNatural villager spawning is disabled!"
-  cure-blocked: "&cZombie villager curing is disabled!"
-  cure-limit: "&cVillager limit reached, cannot cure!"
-  spawn-egg-blocked: "&cVillager spawn eggs are disabled!"
+  limit-reached: "<!i><red>The villager limit for this area has been reached.</red>"
+  spawn-blocked: "<!i><red>Natural villager spawning is disabled.</red>"
+  cure-blocked: "<!i><red>Zombie villager curing is disabled.</red>"
+  spawn-egg-blocked: "<!i><red>Villager spawn eggs are disabled.</red>"
+  breeding-blocked: "<!i><red>Villager breeding is disabled.</red>"
 
-# Trading System
-trade:
-  disabled: "&cVillager trading is disabled!"
-  cooldown: "&cTrade on cooldown, remaining: &e{time}"
-  limit-reached: "&cDaily trade limit reached!"
-  insufficient-exp: "&cTrade requires {required} levels, you have {current}!"
-  insufficient-points: "&cTrade requires {required} experience points, you have {current}!"
-  insufficient-emerald: "&cTrade requires {required} additional emeralds!"
-  min-level: "&cTrade would reduce your level below minimum!"
-  cost-scaling: "&eTrade cost increased to &c{cost}&e times!"
-  exp-consumed-level: "&eConsumed &c{amount} &elevels"
-  exp-consumed-points: "&eConsumed &c{amount} &eexperience points"
-
-# Statistics
-stats:
-  title: "&6========== &eTrade Statistics &6=========="
-  player: "&ePlayer: &6{player}"
-  total-trades: "&eTotal Trades: &6{trades}"
-  total-exp: "&eTotal EXP Spent: &6{exp} &elevels"
-  most-traded: "&eMost Traded Items:"
-  item-line: "  &7- &6{item} &7x &6{count}"
-  no-data: "&ePlayer &6{player} &ehas no trade records"
-
-# Leaderboard
-leaderboard:
-  title: "&6========== &eTrade Leaderboard &6=========="
-  rank-line: "{rank} &6{player} &7- &e{trades} &7trades"
-  no-data: "&eNo leaderboard data available"
-
-# Commands
-command:
-  killvillagers:
-    success: "&aSuccessfully removed &e{count} &avillagers!"
-  stats:
-    usage: "&eUsage: /vlstats [player]"
-    no-permission-others: "&cYou don't have permission to view other players' stats!"
-  admin:
-    title: "&6========== &eVillagerLimit Admin Commands &6=========="
-    reset-usage: "&e/vladmin reset [player] &7- Reset player trade data"
-    clear-usage: "&e/vladmin clear &7- Clear all trade data"
-    reset-success: "&aReset trade data for player &e{player}&a!"
-    clear-warning: "&cWarning: About to clear all trade data!"
-    clear-confirm: "&eExecute this command again within 10 seconds to confirm"
-    unknown-subcommand: "&cUnknown subcommand: {subcommand}"
-    help: "&eUse /vladmin for help"
-
-# Permission Groups
-group:
-  default: "Default"
-  vip: "VIP"
-  svip: "SVIP"
-  admin: "Admin"
-
-# Performance Monitoring
-performance:
-  tps: "TPS"
-  memory-usage: "Memory Usage"
-  avg-task-time: "Average Task Time"
-  task-count: "Task Records"
-  cache-stats: "Cache Statistics"
-  memory-stats: "Memory Statistics"
-  thread-stats: "Thread Pool Statistics"
-  tracker-stats: "Villager Tracker Statistics"
-  cleanup-start: "Performing cleanup..."
-  cleanup-done: "Cleanup completed!"
-  not-enabled: "§c{module} is not enabled!"
-
-  insufficient-points: "§cThis trade requires {required} experience points, you only have {current}!"
-  min-level-protect: "§cThis trade would reduce your level below the minimum!"
-
-# Villager Lifespan
 lifespan:
-  set: "§aVillager has been granted {days} days of lifespan!"
-  expired: "§cA villager's lifespan has expired and disappeared!"
-  display-days: "§e{days}d {hours}h remaining"
-  display-hours: "§e{hours}h remaining"
-  display-minutes: "§e{minutes}m remaining"
-  display-seconds: "§c{seconds}s remaining"
+  set: "<!i><green>Villager lifespan set to <yellow>{days}</yellow> days.</green>"
+  expired: "<!i><red>A villager has expired and disappeared.</red>"
+  display-days: "<!i><yellow>{days}d {hours}h left</yellow>"
+  display-hours: "<!i><yellow>{hours}h left</yellow>"
+  display-minutes: "<!i><yellow>{minutes}m left</yellow>"
+  display-seconds: "<!i><red>{seconds}s left</red>"
+  title: "<!i><gold>========== <yellow>Villager Lifespan</yellow> ==========</gold>"
+  check: "<!i><yellow>Total:</yellow><white>{total}</white> <yellow>With lifespan:</yellow><green>{with}</green> <yellow>Without:</yellow><red>{without}</red>"
+  add-success: "<!i><green>Added <yellow>{days}</yellow> days to <yellow>{count}</yellow> villagers.</green>"
+  list-empty: "<!i><green>All villagers have lifespan data.</green>"
+  list-line: "<!i><yellow>{id}</yellow> <gray>@</gray> <white>{world}</white> <gray>({x}, {y}, {z})</gray>"
+  disabled: "<!i><red>The lifespan system is disabled.</red>"
+
+trade:
+  disabled: "<!i><red>Villager trading is disabled.</red>"
+  cooldown: "<!i><red>This trade is cooling down. Remaining: </red><yellow>{time}</yellow>"
+  limit-reached: "<!i><red>Your trade limit for this period has been reached.</red>"
+  insufficient-exp: "<!i><red>This trade requires {required} levels. You have {current}.</red>"
+  insufficient-points: "<!i><red>This trade requires {required} experience points. You have {current}.</red>"
+  insufficient-emerald: "<!i><red>This trade requires {required} extra emeralds.</red>"
+  min-level: "<!i><red>This trade would put you below the minimum retained level.</red>"
+  exp-consumed-level: "<!i><yellow>Consumed <red>{amount}</red> levels.</yellow>"
+  exp-consumed-points: "<!i><yellow>Consumed <red>{amount}</red> experience points.</yellow>"
+  scaling: "<!i><yellow>Current trade cost multiplier: </yellow><red>{multiplier}</red>"
+  database-error: "<!i><red>Failed to save trade data. This trade has been cancelled.</red>"
+
+stats:
+  no-data: "<!i><yellow>Player <gold>{player}</gold> has no trade records.</yellow>"
+  text-title: "<!i><gold>========== <yellow>Trade Stats</yellow> ==========</gold>"
+  player: "<!i><yellow>Player:</yellow> <gold>{player}</gold>"
+  total-trades: "<!i><yellow>Total trades:</yellow> <gold>{trades}</gold>"
+  total-exp: "<!i><yellow>Total experience spent:</yellow> <gold>{exp}</gold>"
+  item-line: "<!i><gray>-</gray> <gold>{item}</gold> <gray>x</gray> <gold>{count}</gold>"
+
+leaderboard:
+  no-data: "<!i><yellow>No leaderboard data.</yellow>"
+  text-title: "<!i><gold>========== <yellow>Trade Leaderboard</yellow> ==========</gold>"
+  line: "<!i><yellow>#{rank}</yellow> <gold>{player}</gold> <gray>-</gray> <white>{trades}</white> trades"
+
+admin:
+  reset-usage: "<!i><red>Usage: /fv admin reset <player></red>"
+  reset-success: "<!i><green>Reset trade data for <yellow>{player}</yellow>.</green>"
+  clear-warning: "<!i><red>Warning: this will clear all trade data. Run /fv admin clear confirm within 10 seconds to confirm.</red>"
+  clear-success: "<!i><green>All trade data cleared.</green>"
+  info: "<!i><yellow>Version:</yellow><white>{version}</white> <yellow>Database:</yellow><white>{database}</white>"
+
+perf:
+  title: "<!i><gold>========== <yellow>Performance</yellow> ==========</gold>"
+  overview: "<!i><yellow>TPS:</yellow><white>{tps}</white> <yellow>Memory:</yellow><white>{used}MB/{max}MB</white> <yellow>Uptime:</yellow><white>{uptime}</white>"
+  database: "<!i><yellow>Database:</yellow><white>{status}</white> <yellow>Size:</yellow><white>{size}</white>"
+  tracker: "<!i><yellow>Tracked chunks:</yellow><white>{chunks}</white> <yellow>Villagers:</yellow><white>{villagers}</white>"
+  cleanup-start: "<!i><yellow>Cleaning expired data...</yellow>"
+  cleanup-done: "<!i><green>Cleanup complete.</green>"
+
+kill:
+  disabled: "<!i><red>/fv kill is disabled in config.</red>"
+  success: "<!i><green>Removed <yellow>{count}</yellow> villagers.</green>"
+
+gui:
+  close: "<!i><red>Close</red>"
+  stats-title: "Trade Stats - {player}"
+  top-title: "Trade Leaderboard"
+  total-trades: "<!i><green>Total Trades</green>"
+  total-exp: "<!i><aqua>Total Experience Spent</aqua>"
+  last-trade: "<!i><yellow>Last Trade</yellow>"
+  never: "<!i><gray>Never</gray>"
+  top-empty: "<!i><red>No leaderboard data</red>"

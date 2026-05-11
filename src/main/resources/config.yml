@@ -1,99 +1,82 @@
-# Villagerlimit 配置文件
+# FotiaVillage 配置文件
 
-# 语言设置 (zh_CN, en_US)
+# 语言设置：zh_CN 或 en_US
 language: zh_CN
 
-# 调试模式（启用后会输出详细日志）
+# 调试模式：启用后输出详细日志
 debug: false
 
-# 缓存设置
-cache:
-  # 缓存过期时间（秒）
-  expire-time: 300
+# GUI 设置
+gui:
+  # 是否启用统计和排行榜 GUI
+  enabled: true
 
-# 异步任务设置
-async:
-  # 核心线程池大小
-  core-pool-size: 4
-  # 最大线程池大小
-  max-pool-size: 8
-
-# 内存优化设置
-memory:
-  # 清理间隔（秒）
-  cleanup-interval: 600
-  # 是否建议JVM进行垃圾回收
-  suggest-gc: false
+# PlaceholderAPI 设置
+placeholder:
+  # 是否注册 FotiaVillage 变量
+  enabled: true
 
 # 性能监控设置
-monitoring:
-  # 是否启用自动报告
+performance:
+  # 是否启用自动性能报告
   auto-report: true
-  # 报告间隔（秒）
+  # 自动报告间隔（秒）
   report-interval: 300
+  # TPS 低于该值时输出警告
+  low-tps-warning: 18.0
+  # 清理过期数据库记录的间隔（秒）
+  cleanup-expired-interval: 600
 
 # 村民数量限制设置
 villager-limit:
-  # 是否启用村民数量限制
+  # 是否启用区域村民数量限制
   enabled: true
   # 检测范围（区块半径）
   chunk-radius: 3
-  # 该范围内最大村民数量
+  # 范围内最大村民数量
   max-villagers: 5
 
-# 村民生成设置
+# 村民生成控制
 spawn-control:
   # 是否禁止自然生成
   block-natural-spawn: true
-  # 是否允许通过治愈僵尸村民获得
+  # 是否允许治愈僵尸村民
   allow-cure: true
-  # 是否允许使用刷怪蛋放置村民
+  # 是否允许使用村民刷怪蛋
   allow-spawn-egg: true
   # 是否允许村民繁殖
   allow-breeding: true
 
 # 村民寿命设置
 villager-lifespan:
-  # 是否启用村民寿命系统
+  # 是否启用寿命系统
   enabled: true
-  # 治愈获得的村民寿命（天）
+  # 新增/补全寿命的天数
   days: 7
   # 是否通知玩家
   notify-enabled: true
-  # 通知范围（格，0表示全服）
+  # 通知范围（格，0 表示全服）
   notify-range: 16
-  # 自动添加寿命设置
+  # 自动为没有寿命的村民补全寿命
   auto-add-lifespan:
-    # 是否启用自动添加寿命
+    # 是否启用自动补全
     enabled: true
-    # 检查间隔（秒），0表示仅启动时检查
+    # 检查间隔（秒，0 表示仅启动时检查）
     check-interval: 300
-    # 启动时是否检查
+    # 启动后是否执行一次检查
     check-on-startup: true
 
-# 村民AI优化设置
-ai-optimization:
-  # 是否启用AI优化
-  enabled: true
-  # 禁用的AI目标（优化性能）
-  disable-goals:
-    - MOVE_THROUGH_VILLAGE  # 禁用村庄移动
-    - MOVE_TO_RAID          # 禁用移动到袭击点
-    - PANIC                 # 禁用恐慌行为
-    - LOOK_AT_PLAYER        # 禁用看向玩家
-    - LOOK_AT_TRADING_PLAYER # 禁用看向交易玩家
-
-# 交易设置
+# 交易控制
 trade-control:
-  # 是否禁用村民交易
+  # 是否完全禁用村民交易
   disable-trading: false
-  
-  # 交易经验消耗系统
+
+  # 交易经验消耗
   exp-cost:
     enabled: true
-    # 消耗模式: LEVEL(等级), POINTS(经验值)
+    # 消耗模式：LEVEL 等级，POINTS 经验点
     cost-mode: LEVEL
-    # 基础经验消耗（等级或经验值，取决于cost-mode）
+    # 基础消耗
     base-cost: 5
     # 按职业设置消耗
     per-profession:
@@ -110,7 +93,7 @@ trade-control:
       BUTCHER: 3
       CARTOGRAPHER: 10
       MASON: 5
-    # 高价值物品额外消耗
+    # 高价值物品额外经验消耗
     valuable-items:
       DIAMOND: 20
       DIAMOND_SWORD: 25
@@ -125,29 +108,29 @@ trade-control:
       ENCHANTED_BOOK: 15
       NETHERITE_INGOT: 30
       ELYTRA: 50
-    # 最低保留等级（不会扣到低于此等级）
+    # 最低保留等级
     min-level: 0
-  
-  # 交易成本递增系统
+
+  # 交易成本递增
   cost-scaling:
     enabled: true
-    # 递增类型: MULTIPLIER(倍率), ADDITIVE(固定增量), STEPPED(阶梯式)
+    # 递增类型：MULTIPLIER 倍率，ADDITIVE 固定增量，STEPPED 阶梯
     scaling-type: MULTIPLIER
-    # 倍率（每次交易后成本乘以此值）
+    # MULTIPLIER 模式每次交易乘以该值
     multiplier: 1.5
     # 最大倍率
     max-multiplier: 10.0
-    # 固定增量（ADDITIVE模式）
+    # ADDITIVE 模式每次增加的倍率数值
     additive-amount: 1
-    # 重置时间（小时，0表示不重置）
+    # 重置时间（小时，0 表示不重置）
     reset-hours: 24
-    # 衰减率（每小时衰减百分比，0表示不衰减）
+    # 每小时衰减比例，0 表示不衰减
     decay-rate: 0.0
-  
-  # 交易冷却系统
+
+  # 交易冷却
   cooldown:
     enabled: true
-    # 默认冷却时间（秒）
+    # 默认冷却（秒）
     default-cooldown: 300
     # 按职业设置冷却
     per-profession:
@@ -157,18 +140,18 @@ trade-control:
       TOOLSMITH: 720
       CLERIC: 480
       CARTOGRAPHER: 600
-    # 按物品设置冷却
+    # 按交易结果物品设置冷却
     per-item:
       DIAMOND: 1800
       ENCHANTED_BOOK: 1200
       NETHERITE_INGOT: 2400
-  
+
   # 交易次数限制
   limit:
     enabled: true
-    # 重置周期: DAILY, WEEKLY, MONTHLY
+    # 重置周期：DAILY 每日，WEEKLY 每周，MONTHLY 每月
     reset-period: DAILY
-    # 全局每日限制
+    # 全局周期交易次数上限
     global-limit: 50
     # 按职业限制
     per-profession:
@@ -178,80 +161,63 @@ trade-control:
       TOOLSMITH: 15
       CLERIC: 15
       CARTOGRAPHER: 10
-    # 按物品限制
+    # 按交易结果物品限制
     per-item:
       DIAMOND: 5
       ENCHANTED_BOOK: 10
       NETHERITE_INGOT: 3
-  
-  # 权限组差异化配置
+
+  # 权限组差异化配置，按 priority 从高到低匹配
   permission-groups:
-    # 权限组列表（按优先级从高到低）
-    # 格式: 组名:
-    #   permission: 权限节点
-    #   priority: 优先级（数字越大优先级越高）
-    #   exp-cost-multiplier: 经验消耗倍率
-    #   cooldown-multiplier: 冷却时间倍率
-    #   daily-limit-bonus: 每日限制额外次数
-    
-    # 管理员组（最高优先级）
     admin:
-      permission: "villagerlimit.trade.admin"
+      permission: "fotiavillage.trade.admin"
       priority: 100
       exp-cost-multiplier: 0.0
       cooldown-multiplier: 0.0
       daily-limit-bonus: 999999
-    
-    # SVIP组
     svip:
-      permission: "villagerlimit.trade.svip"
+      permission: "fotiavillage.trade.svip"
       priority: 50
       exp-cost-multiplier: 0.5
       cooldown-multiplier: 0.5
       daily-limit-bonus: 50
-    
-    # VIP组
     vip:
-      permission: "villagerlimit.trade.vip"
+      permission: "fotiavillage.trade.vip"
       priority: 30
       exp-cost-multiplier: 0.8
       cooldown-multiplier: 0.7
       daily-limit-bonus: 20
-    
-    # 默认组（最低优先级）
     default:
       permission: ""
       priority: 0
       exp-cost-multiplier: 1.0
       cooldown-multiplier: 1.0
       daily-limit-bonus: 0
-  
-  # 经济平衡机制
+
+  # 额外绿宝石消耗
   economy-balance:
     enabled: true
-    # 绿宝石消耗倍率（额外消耗绿宝石）
+    # 高价值物品绿宝石消耗倍率
     emerald-cost-multiplier: 1.5
-    # 是否消耗额外绿宝石
+    # 是否要求额外绿宝石
     require-extra-emeralds: true
-    # 高价值物品额外绿宝石消耗
+    # 高价值物品额外绿宝石基础消耗
     valuable-items-emerald-cost:
       DIAMOND: 5
       DIAMOND_SWORD: 10
       DIAMOND_PICKAXE: 10
       ENCHANTED_BOOK: 8
       NETHERITE_INGOT: 20
-  
-  # 交易统计系统
+
+  # 交易统计
   statistics:
     enabled: true
-    # 是否记录详细交易日志
+    # 是否输出详细交易日志
     detailed-logging: true
-    # 是否启用排行榜
-    leaderboard-enabled: true
-    # 排行榜更新间隔（分钟）
-    leaderboard-update-interval: 30
+    # 排行榜显示数量
+    leaderboard-size: 10
 
 # 命令设置
 commands:
-  # killvillagers 命令是否启用
-  killvillagers-enabled: true
+  # 是否启用 /fv kill
+  kill-enabled: true

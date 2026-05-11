@@ -1,95 +1,108 @@
-# Villagerlimit 中文语言文件
+prefix: "<!i><gold>[FotiaVillage]</gold> "
+no-permission: "<!i><red>你没有权限使用此命令！</red>"
+player-only: "<!i><red>该命令只能由玩家执行。</red>"
+player-not-found: "<!i><red>玩家不在线或没有记录。</red>"
+reload-start: "<!i><yellow>正在重载配置...</yellow>"
+reload-success: "<!i><green>配置已重载。</green>"
+reload-failed: "<!i><red>重载失败：{error}</red>"
+unknown-command: "<!i><red>未知子命令：{command}</red>"
 
-# 通用消息
-prefix: "&6[村民限制] "
-no-permission: "&c你没有权限使用此命令！"
-player-not-found: "&c玩家不在线！"
-reload-success: "&a配置已重载！"
-reload-failed: "&c重载配置时出错: {0}"
+status:
+  connected: "已连接"
+  disconnected: "未连接"
 
-# 村民限制
+time:
+  duration-days-hours: "{days}天{hours}小时"
+  duration-hours-minutes: "{hours}小时{minutes}分钟"
+  duration-minutes-seconds: "{minutes}分钟{seconds}秒"
+  duration-seconds: "{seconds}秒"
+  ago-days: "{days}天前"
+  ago-hours: "{hours}小时前"
+  ago-minutes: "{minutes}分钟前"
+  ago-seconds: "{seconds}秒前"
+
+help:
+  title: "<!i><gold>========== <yellow>FotiaVillage 命令</yellow> ==========</gold>"
+  reload: "<!i><yellow>/fv reload</yellow> <gray>- 重载配置和语言</gray>"
+  stats: "<!i><yellow>/fv stats [玩家]</yellow> <gray>- 查看交易统计</gray>"
+  top: "<!i><yellow>/fv top</yellow> <gray>- 查看交易排行榜</gray>"
+  admin: "<!i><yellow>/fv admin reset|clear|info</yellow> <gray>- 管理交易数据</gray>"
+  perf: "<!i><yellow>/fv perf [memory|database|tracker|cleanup]</yellow> <gray>- 查看性能信息</gray>"
+  lifespan: "<!i><yellow>/fv lifespan check|add|list</yellow> <gray>- 管理村民寿命</gray>"
+  kill: "<!i><yellow>/fv kill</yellow> <gray>- 移除所有已加载村民</gray>"
+
 villager:
-  limit-reached: "&c该区域村民数量已达上限！"
-  spawn-blocked: "&c村民自然生成已被禁用！"
-  cure-blocked: "&c僵尸村民治愈已被禁用！"
-  cure-limit: "&c该区域村民数量已达上限，无法治愈！"
-  spawn-egg-blocked: "&c禁止使用村民刷怪蛋！"
+  limit-reached: "<!i><red>该区域村民数量已达上限！</red>"
+  spawn-blocked: "<!i><red>村民自然生成已被禁用！</red>"
+  cure-blocked: "<!i><red>僵尸村民治愈已被禁用！</red>"
+  spawn-egg-blocked: "<!i><red>禁止使用村民刷怪蛋！</red>"
+  breeding-blocked: "<!i><red>村民繁殖已被禁用！</red>"
 
-# 交易系统
-trade:
-  disabled: "&c村民交易已被禁用！"
-  cooldown: "&c该交易冷却中，剩余: &e{time}"
-  limit-reached: "&c今日交易次数已达上限！"
-  insufficient-exp: "&c交易需要 {required} 级经验，你当前只有 {current} 级！"
-  insufficient-points: "&c交易需要 {required} 点经验，你当前只有 {current} 点！"
-  insufficient-emerald: "&c交易需要额外 {required} 个绿宝石！"
-  min-level: "&c交易会使你的等级低于最低保留等级！"
-  cost-scaling: "&e该交易成本已增加至 &c{cost}&e 倍！"
-  exp-consumed-level: "&e消耗了 &c{amount} &e级经验"
-  exp-consumed-points: "&e消耗了 &c{amount} &e点经验值"
-
-# 统计系统
-stats:
-  title: "&6========== &e交易统计 &6=========="
-  player: "&e玩家: &6{player}"
-  total-trades: "&e总交易次数: &6{trades}"
-  total-exp: "&e总消耗经验: &6{exp} &e级"
-  most-traded: "&e最常交易物品:"
-  item-line: "  &7- &6{item} &7x &6{count}"
-  no-data: "&e玩家 &6{player} &e还没有交易记录"
-
-# 排行榜
-leaderboard:
-  title: "&6========== &e交易排行榜 &6=========="
-  rank-line: "{rank} &6{player} &7- &e{trades} &7次交易"
-  no-data: "&e暂无交易排行数据"
-
-# 命令系统
-command:
-  killvillagers:
-    success: "&a成功移除了 &e{count} &a个村民！"
-  stats:
-    usage: "&e用法: /vlstats [玩家名]"
-    no-permission-others: "&c你没有权限查看其他玩家的统计！"
-  admin:
-    title: "&6========== &eVillagerLimit 管理命令 &6=========="
-    reset-usage: "&e/vladmin reset [玩家] &7- 重置玩家交易数据"
-    clear-usage: "&e/vladmin clear &7- 清空所有交易数据"
-    reset-success: "&a已重置玩家 &e{player} &a的交易数据！"
-    clear-warning: "&c警告: 即将清空所有交易数据！"
-    clear-confirm: "&e请在10秒内再次执行此命令以确认"
-    unknown-subcommand: "&c未知的子命令: {subcommand}"
-    help: "&e使用 /vladmin 查看帮助"
-
-# 权限组
-group:
-  default: "默认"
-  vip: "VIP"
-  svip: "SVIP"
-  admin: "管理员"
-
-# 性能监控
-performance:
-  tps: "TPS"
-  memory-usage: "内存使用"
-  avg-task-time: "平均任务时间"
-  task-count: "任务记录数"
-  cache-stats: "缓存统计"
-  memory-stats: "内存统计"
-  thread-stats: "线程池统计"
-  tracker-stats: "村民追踪统计"
-  cleanup-start: "正在执行清理..."
-  cleanup-done: "清理完成！"
-  not-enabled: "§c{module}未启用！"
-
-  insufficient-points: "§c交易需要 {required} 点经验，你当前只有 {current} 点！"
-  min-level-protect: "§c交易会使你的等级低于最低保留等级！"
-
-# 村民寿命
 lifespan:
-  set: "§a村民已获得 {days} 天寿命！"
-  expired: "§c一个村民的寿命已到期并消失了！"
-  display-days: "§e剩余 {days}天 {hours}小时"
-  display-hours: "§e剩余 {hours}小时"
-  display-minutes: "§e剩余 {minutes}分钟"
-  display-seconds: "§c剩余 {seconds}秒"
+  set: "<!i><green>村民已获得 <yellow>{days}</yellow> 天寿命！</green>"
+  expired: "<!i><red>一个村民的寿命已到期并消失了！</red>"
+  display-days: "<!i><yellow>剩余 {days}天 {hours}小时</yellow>"
+  display-hours: "<!i><yellow>剩余 {hours}小时</yellow>"
+  display-minutes: "<!i><yellow>剩余 {minutes}分钟</yellow>"
+  display-seconds: "<!i><red>剩余 {seconds}秒</red>"
+  title: "<!i><gold>========== <yellow>村民寿命管理</yellow> ==========</gold>"
+  check: "<!i><yellow>总村民数：</yellow><white>{total}</white> <yellow>有寿命：</yellow><green>{with}</green> <yellow>无寿命：</yellow><red>{without}</red>"
+  add-success: "<!i><green>成功为 <yellow>{count}</yellow> 个村民添加 <yellow>{days}</yellow> 天寿命。</green>"
+  list-empty: "<!i><green>所有村民都已设置寿命。</green>"
+  list-line: "<!i><yellow>{id}</yellow> <gray>@</gray> <white>{world}</white> <gray>({x}, {y}, {z})</gray>"
+  disabled: "<!i><red>寿命系统未启用。</red>"
+
+trade:
+  disabled: "<!i><red>村民交易已被禁用！</red>"
+  cooldown: "<!i><red>该交易冷却中，剩余：</red><yellow>{time}</yellow>"
+  limit-reached: "<!i><red>本周期交易次数已达上限！</red>"
+  insufficient-exp: "<!i><red>交易需要 {required} 级经验，你当前只有 {current} 级。</red>"
+  insufficient-points: "<!i><red>交易需要 {required} 点经验，你当前只有 {current} 点。</red>"
+  insufficient-emerald: "<!i><red>交易需要额外 {required} 个绿宝石。</red>"
+  min-level: "<!i><red>交易会使你的等级低于最低保留等级。</red>"
+  exp-consumed-level: "<!i><yellow>消耗了 <red>{amount}</red> 级经验。</yellow>"
+  exp-consumed-points: "<!i><yellow>消耗了 <red>{amount}</red> 点经验值。</yellow>"
+  scaling: "<!i><yellow>该交易当前成本倍率：</yellow><red>{multiplier}</red>"
+  database-error: "<!i><red>交易数据保存失败，本次交易已取消。</red>"
+
+stats:
+  no-data: "<!i><yellow>玩家 <gold>{player}</gold> 暂无交易记录。</yellow>"
+  text-title: "<!i><gold>========== <yellow>交易统计</yellow> ==========</gold>"
+  player: "<!i><yellow>玩家：</yellow><gold>{player}</gold>"
+  total-trades: "<!i><yellow>总交易次数：</yellow><gold>{trades}</gold>"
+  total-exp: "<!i><yellow>总消耗经验：</yellow><gold>{exp}</gold>"
+  item-line: "<!i><gray>-</gray> <gold>{item}</gold> <gray>x</gray> <gold>{count}</gold>"
+
+leaderboard:
+  no-data: "<!i><yellow>暂无交易排行数据。</yellow>"
+  text-title: "<!i><gold>========== <yellow>交易排行榜</yellow> ==========</gold>"
+  line: "<!i><yellow>#{rank}</yellow> <gold>{player}</gold> <gray>-</gray> <white>{trades}</white> 次交易"
+
+admin:
+  reset-usage: "<!i><red>用法：/fv admin reset <玩家名></red>"
+  reset-success: "<!i><green>已重置玩家 <yellow>{player}</yellow> 的交易数据。</green>"
+  clear-warning: "<!i><red>警告：将清空所有交易数据。请在 10 秒内执行 /fv admin clear confirm 确认。</red>"
+  clear-success: "<!i><green>已清空所有交易数据。</green>"
+  info: "<!i><yellow>版本：</yellow><white>{version}</white> <yellow>数据库：</yellow><white>{database}</white>"
+
+perf:
+  title: "<!i><gold>========== <yellow>性能统计</yellow> ==========</gold>"
+  overview: "<!i><yellow>TPS：</yellow><white>{tps}</white> <yellow>内存：</yellow><white>{used}MB/{max}MB</white> <yellow>运行：</yellow><white>{uptime}</white>"
+  database: "<!i><yellow>数据库：</yellow><white>{status}</white> <yellow>大小：</yellow><white>{size}</white>"
+  tracker: "<!i><yellow>追踪区块：</yellow><white>{chunks}</white> <yellow>村民：</yellow><white>{villagers}</white>"
+  cleanup-start: "<!i><yellow>正在清理过期数据...</yellow>"
+  cleanup-done: "<!i><green>清理完成。</green>"
+
+kill:
+  disabled: "<!i><red>/fv kill 已在配置中禁用。</red>"
+  success: "<!i><green>已移除 <yellow>{count}</yellow> 个村民。</green>"
+
+gui:
+  close: "<!i><red>关闭</red>"
+  stats-title: "交易统计 - {player}"
+  top-title: "交易排行榜"
+  total-trades: "<!i><green>总交易次数</green>"
+  total-exp: "<!i><aqua>总消耗经验</aqua>"
+  last-trade: "<!i><yellow>最后交易时间</yellow>"
+  never: "<!i><gray>从未</gray>"
+  top-empty: "<!i><red>暂无排行数据</red>"
