@@ -18,6 +18,9 @@ public final class CooldownService {
         if (!config.enabled()) {
             return 0L;
         }
+        if (cooldownSeconds(player, profession, itemType, config) <= 0) {
+            return 0L;
+        }
         long end = plugin.database().getCooldownEnd(player.getUniqueId(), profession, itemType);
         return Math.max(0L, end - System.currentTimeMillis());
     }
@@ -27,6 +30,13 @@ public final class CooldownService {
         if (!config.enabled()) {
             return;
         }
+        int seconds = cooldownSeconds(player, profession, itemType, config);
+        if (seconds > 0) {
+            plugin.database().setCooldown(player.getUniqueId(), profession, itemType, System.currentTimeMillis() + seconds * 1000L);
+        }
+    }
+
+    private int cooldownSeconds(Player player, String profession, String itemType, FotiaSettings.Cooldown config) {
         int seconds = config.defaultCooldown();
         Integer professionSeconds = config.perProfession().get(profession);
         if (professionSeconds != null) {
@@ -37,8 +47,6 @@ public final class CooldownService {
             seconds = Math.max(0, itemSeconds);
         }
         seconds = (int) Math.ceil(seconds * groups.group(player).cooldownMultiplier());
-        if (seconds > 0) {
-            plugin.database().setCooldown(player.getUniqueId(), profession, itemType, System.currentTimeMillis() + seconds * 1000L);
-        }
+        return Math.max(0, seconds);
     }
 }
