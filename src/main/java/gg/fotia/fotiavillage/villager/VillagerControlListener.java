@@ -31,7 +31,7 @@ public final class VillagerControlListener implements Listener {
         if (reason == CreatureSpawnEvent.SpawnReason.CURED) {
             return;
         }
-        if (reason == CreatureSpawnEvent.SpawnReason.SPAWNER_EGG) {
+        if (isSpawnEgg(reason)) {
             if (!settings.spawnControl().allowSpawnEgg()) {
                 cancel(event, "villager.spawn-egg-blocked");
                 return;
@@ -55,13 +55,15 @@ public final class VillagerControlListener implements Listener {
             setLifespanLater(event);
             return;
         }
-        if (settings.spawnControl().blockNaturalSpawn()) {
+        if (isNaturalSpawn(reason) && settings.spawnControl().blockNaturalSpawn()) {
             cancel(event, "villager.spawn-blocked");
             return;
         }
         if (limitReached(event.getLocation())) {
             cancel(event, "villager.limit-reached");
+            return;
         }
+        setLifespanLater(event);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -93,6 +95,20 @@ public final class VillagerControlListener implements Listener {
     private boolean limitReached(Location location) {
         FotiaSettings.VillagerLimit limit = plugin.settings().villagerLimit();
         return limit.enabled() && plugin.villagerTracker().countInRadius(location.getChunk(), limit.chunkRadius()) >= limit.maxVillagers();
+    }
+
+    private boolean isSpawnEgg(CreatureSpawnEvent.SpawnReason reason) {
+        return switch (reason.name()) {
+            case "SPAWNER_EGG", "DISPENSE_EGG", "EGG" -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isNaturalSpawn(CreatureSpawnEvent.SpawnReason reason) {
+        return switch (reason.name()) {
+            case "NATURAL", "CHUNK_GEN", "DEFAULT" -> true;
+            default -> false;
+        };
     }
 
     private void setLifespanLater(CreatureSpawnEvent event) {

@@ -54,6 +54,7 @@ public final class LifespanService implements Listener {
         tasks.clear();
         displays.values().forEach(Entity::remove);
         displays.clear();
+        removeOwnedDisplays();
     }
 
     public void setLifespan(Villager villager, int days) {
@@ -243,6 +244,16 @@ public final class LifespanService implements Listener {
                 } catch (IllegalArgumentException ignored) {
                 }
                 if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                    display.remove();
+                }
+            }
+        }
+    }
+
+    private void removeOwnedDisplays() {
+        for (var world : plugin.getServer().getWorlds()) {
+            for (TextDisplay display : world.getEntitiesByClass(TextDisplay.class)) {
+                if (display.getPersistentDataContainer().has(displayOwnerKey, PersistentDataType.STRING)) {
                     display.remove();
                 }
             }

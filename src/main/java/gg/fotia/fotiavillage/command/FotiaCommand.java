@@ -11,7 +11,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 
@@ -241,8 +240,9 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         }
         int count = 0;
         for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntitiesByClass(Villager.class)) {
-                entity.remove();
+            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                plugin.lifespan().cleanupDisplay(villager);
+                villager.remove();
                 count++;
             }
         }
