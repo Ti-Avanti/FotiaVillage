@@ -4,9 +4,11 @@ import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.MerchantInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.PlayerInventory;
 
 public final class EconomyBalanceService {
     private final FotiaVillagePlugin plugin;
@@ -37,25 +39,21 @@ public final class EconomyBalanceService {
 
     public void consumeExtraEmeralds(Player player, int amount) {
         int remaining = consumeMerchantInputEmeralds(player, amount);
-        for (ItemStack item : player.getInventory().getStorageContents()) {
+        PlayerInventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getStorageContents().length; slot++) {
             if (remaining <= 0) {
                 return;
             }
-            if (item == null || item.getType() != Material.EMERALD) {
-                continue;
-            }
-            int stackAmount = item.getAmount();
-            if (stackAmount <= remaining) {
-                remaining -= stackAmount;
-                item.setAmount(0);
-            } else {
-                item.setAmount(stackAmount - remaining);
-                return;
-            }
+            remaining = consumeEmeralds(inventory, slot, remaining);
         }
-        ItemStack offHand = player.getInventory().getItemInOffHand();
+        ItemStack offHand = inventory.getItemInOffHand();
         if (remaining > 0 && offHand.getType() == Material.EMERALD) {
-            offHand.setAmount(Math.max(0, offHand.getAmount() - remaining));
+            if (offHand.getAmount() <= remaining) {
+                inventory.setItemInOffHand(new ItemStack(Material.AIR));
+            } else {
+                offHand.setAmount(offHand.getAmount() - remaining);
+                inventory.setItemInOffHand(offHand);
+            }
         }
     }
 
@@ -63,20 +61,22 @@ public final class EconomyBalanceService {
         if (!(player.getOpenInventory().getTopInventory() instanceof MerchantInventory inventory)) {
             return amount;
         }
-        int remaining = consumeEmeralds(inventory.getItem(0), amount);
-        return consumeEmeralds(inventory.getItem(1), remaining);
+        int remaining = consumeEmeralds(inventory, 0, amount);
+        return consumeEmeralds(inventory, 1, remaining);
     }
 
-    private int consumeEmeralds(ItemStack item, int amount) {
+    private int consumeEmeralds(Inventory inventory, int slot, int amount) {
+        ItemStack item = inventory.getItem(slot);
         if (amount <= 0 || item == null || item.getType() != Material.EMERALD) {
             return amount;
         }
         int stackAmount = item.getAmount();
         if (stackAmount <= amount) {
-            item.setAmount(0);
+            inventory.setItem(slot, null);
             return amount - stackAmount;
         }
         item.setAmount(stackAmount - amount);
+        inventory.setItem(slot, item);
         return 0;
     }
 
