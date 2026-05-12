@@ -2,6 +2,7 @@ package gg.fotia.fotiavillage.gui;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -37,13 +38,17 @@ public abstract class BaseGui {
         ItemStack stack = new ItemStack(material);
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
-            meta.displayName(name);
+            meta.displayName(noItalic(name));
             if (lore.length > 0) {
-                meta.lore(List.of(lore));
+                meta.lore(List.of(lore).stream().map(this::noItalic).toList());
             }
             stack.setItemMeta(meta);
         }
         return stack;
+    }
+
+    private Component noItalic(Component component) {
+        return component.decoration(TextDecoration.ITALIC, false);
     }
 
     protected void border(Material material) {
