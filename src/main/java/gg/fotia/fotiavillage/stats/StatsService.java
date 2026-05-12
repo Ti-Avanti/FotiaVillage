@@ -35,4 +35,8 @@ public final class StatsService {
     public List<PlayerTradeStats> leaderboard() {
         return plugin.database().leaderboard(plugin.settings().tradeControl().statistics().leaderboardSize());
     }
+
+    public int rank(UUID uuid) {
+        return plugin.database().rank(uuid);
+    }
 }

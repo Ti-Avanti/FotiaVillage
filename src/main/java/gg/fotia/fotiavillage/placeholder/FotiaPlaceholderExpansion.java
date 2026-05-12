@@ -53,7 +53,7 @@ public final class FotiaPlaceholderExpansion extends PlaceholderExpansion {
         return switch (normalized) {
             case "trades" -> stats == null ? "0" : String.valueOf(stats.totalTrades());
             case "exp_spent" -> stats == null ? "0" : String.valueOf(stats.totalExpSpent());
-            case "rank" -> String.valueOf(rank(online));
+            case "rank" -> String.valueOf(plugin.stats().rank(online.getUniqueId()));
             case "group" -> plugin.permissionGroups().group(online).name();
             case "group_priority" -> String.valueOf(plugin.permissionGroups().group(online).priority());
             case "daily_limit" -> String.valueOf(plugin.tradeLimits().globalLimit(online));
@@ -86,15 +86,5 @@ public final class FotiaPlaceholderExpansion extends PlaceholderExpansion {
             case "exp" -> String.valueOf(stats.totalExpSpent());
             default -> "";
         };
-    }
-
-    private int rank(Player player) {
-        var leaderboard = plugin.stats().leaderboard();
-        for (int i = 0; i < leaderboard.size(); i++) {
-            if (leaderboard.get(i).uuid().equals(player.getUniqueId())) {
-                return i + 1;
-            }
-        }
-        return -1;
     }
 }

@@ -149,6 +149,29 @@ public final class DatabaseService {
         }
     }
 
+    public synchronized int rank(UUID uuid) {
+        try (PreparedStatement stats = connection.prepareStatement("SELECT total_trades, total_exp_spent FROM player_stats WHERE uuid = ?")) {
+            stats.setString(1, uuid.toString());
+            try (ResultSet rs = stats.executeQuery()) {
+                if (!rs.next()) {
+                    return -1;
+                }
+                int trades = rs.getInt("total_trades");
+                int exp = rs.getInt("total_exp_spent");
+                try (PreparedStatement rank = connection.prepareStatement("SELECT COUNT(*) + 1 AS rank FROM player_stats WHERE total_trades > ? OR (total_trades = ? AND total_exp_spent > ?)")) {
+                    rank.setInt(1, trades);
+                    rank.setInt(2, trades);
+                    rank.setInt(3, exp);
+                    try (ResultSet rankRs = rank.executeQuery()) {
+                        return rankRs.next() ? rankRs.getInt("rank") : -1;
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to load player rank", ex);
+        }
+    }
+
     public synchronized int getTradeCount(UUID uuid, String limitType, String limitKey, String resetKey) {
         try (PreparedStatement stmt = connection.prepareStatement("SELECT count FROM trade_limits WHERE uuid = ? AND limit_type = ? AND limit_key = ? AND reset_key = ?")) {
             stmt.setString(1, uuid.toString());
