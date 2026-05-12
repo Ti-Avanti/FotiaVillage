@@ -79,7 +79,7 @@ leaderboard:
   line: "<!i><yellow>#{rank}</yellow> <gold>{player}</gold> <gray>-</gray> <white>{trades}</white> 次交易"
 
 admin:
-  reset-usage: "<!i><red>用法：/fv admin reset <玩家名></red>"
+  reset-usage: '<!i><red>用法：/fv admin reset \<玩家名\></red>'
   reset-success: "<!i><green>已重置玩家 <yellow>{player}</yellow> 的交易数据。</green>"
   clear-warning: "<!i><red>警告：将清空所有交易数据。请在 10 秒内执行 /fv admin clear confirm 确认。</red>"
   clear-success: "<!i><green>已清空所有交易数据。</green>"

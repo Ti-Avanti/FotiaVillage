@@ -79,7 +79,7 @@ leaderboard:
   line: "<!i><yellow>#{rank}</yellow> <gold>{player}</gold> <gray>-</gray> <white>{trades}</white> trades"
 
 admin:
-  reset-usage: "<!i><red>Usage: /fv admin reset <player></red>"
+  reset-usage: '<!i><red>Usage: /fv admin reset \<player\></red>'
   reset-success: "<!i><green>Reset trade data for <yellow>{player}</yellow>.</green>"
   clear-warning: "<!i><red>Warning: this will clear all trade data. Run /fv admin clear confirm within 10 seconds to confirm.</red>"
   clear-success: "<!i><green>All trade data cleared.</green>"
