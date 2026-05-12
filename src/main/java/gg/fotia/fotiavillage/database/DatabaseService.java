@@ -119,7 +119,7 @@ public final class DatabaseService {
     }
 
     public synchronized Optional<PlayerTradeStats> findStatsByName(String playerName) {
-        try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats WHERE lower(player_name) = lower(?)")) {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats WHERE lower(player_name) = lower(?) ORDER BY updated_at DESC LIMIT 1")) {
             stmt.setString(1, playerName);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
