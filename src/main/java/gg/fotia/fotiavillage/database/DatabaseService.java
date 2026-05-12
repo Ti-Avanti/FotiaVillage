@@ -74,6 +74,9 @@ public final class DatabaseService {
         execute("CREATE TABLE IF NOT EXISTS trade_cooldowns (uuid TEXT NOT NULL, profession TEXT NOT NULL, item_type TEXT NOT NULL, cooldown_end INTEGER NOT NULL, PRIMARY KEY (uuid, profession, item_type))");
         execute("CREATE TABLE IF NOT EXISTS trade_limits (uuid TEXT NOT NULL, limit_type TEXT NOT NULL, limit_key TEXT NOT NULL, reset_key TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uuid, limit_type, limit_key, reset_key))");
         execute("CREATE TABLE IF NOT EXISTS trade_scaling (uuid TEXT NOT NULL, item_type TEXT NOT NULL, multiplier REAL NOT NULL DEFAULT 1.0, trade_count INTEGER NOT NULL DEFAULT 0, last_trade_time INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uuid, item_type))");
+        execute("CREATE INDEX IF NOT EXISTS idx_player_stats_name_updated ON player_stats (player_name COLLATE NOCASE, updated_at DESC)");
+        execute("CREATE INDEX IF NOT EXISTS idx_player_stats_rank ON player_stats (total_trades DESC, total_exp_spent DESC)");
+        execute("CREATE INDEX IF NOT EXISTS idx_item_stats_uuid_count ON item_stats (uuid, trade_count DESC)");
     }
 
     private void execute(String sql) throws SQLException {
@@ -119,7 +122,7 @@ public final class DatabaseService {
     }
 
     public synchronized Optional<PlayerTradeStats> findStatsByName(String playerName) {
-        try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats WHERE lower(player_name) = lower(?) ORDER BY updated_at DESC LIMIT 1")) {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats WHERE player_name = ? COLLATE NOCASE ORDER BY updated_at DESC LIMIT 1")) {
             stmt.setString(1, playerName);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
