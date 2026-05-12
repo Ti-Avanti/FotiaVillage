@@ -1,6 +1,7 @@
 package gg.fotia.fotiavillage.villager;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
+import io.papermc.paper.event.entity.EntityMoveEvent;
 import org.bukkit.Chunk;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -74,6 +75,20 @@ public final class VillagerTracker implements Listener {
         if (!(event.getEntity() instanceof Villager) && event.getTransformedEntity() instanceof Villager) {
             increment(event.getTransformedEntity().getChunk());
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMove(EntityMoveEvent event) {
+        if (!(event.getEntity() instanceof Villager)) {
+            return;
+        }
+        Chunk from = event.getFrom().getChunk();
+        Chunk to = event.getTo().getChunk();
+        if (from.getWorld().equals(to.getWorld()) && from.getX() == to.getX() && from.getZ() == to.getZ()) {
+            return;
+        }
+        decrement(from);
+        increment(to);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
