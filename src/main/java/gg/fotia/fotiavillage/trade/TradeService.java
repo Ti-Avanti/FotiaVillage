@@ -108,7 +108,9 @@ public final class TradeService implements Listener {
         if (!config.enabled()) {
             return 0;
         }
-        int total = Math.max(config.baseCost(), Math.max(config.perProfession().getOrDefault(profession, config.baseCost()), config.valuableItems().getOrDefault(itemType, 0)));
+        int professionCost = config.perProfession().getOrDefault(profession, config.baseCost());
+        int itemExtraCost = config.valuableItems().getOrDefault(itemType, 0);
+        int total = Math.max(0, professionCost) + Math.max(0, itemExtraCost);
         total = (int) Math.ceil(total * scaling.currentMultiplier(player, itemType));
         total = (int) Math.ceil(total * groups.group(player).expCostMultiplier());
         return Math.max(0, total);

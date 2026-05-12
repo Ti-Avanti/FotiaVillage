@@ -13,8 +13,13 @@ public final class TimeUtil {
         LocalDate now = LocalDate.now();
         return switch (period) {
             case DAILY -> now.toString();
-            case WEEKLY -> now.getYear() + "-W" + now.get(WeekFields.of(Locale.getDefault()).weekOfWeekBasedYear());
+            case WEEKLY -> weeklyKey(now);
             case MONTHLY -> now.getYear() + "-" + String.format("%02d", now.getMonthValue());
         };
+    }
+
+    private static String weeklyKey(LocalDate date) {
+        WeekFields weekFields = WeekFields.of(Locale.getDefault());
+        return date.get(weekFields.weekBasedYear()) + "-W" + String.format("%02d", date.get(weekFields.weekOfWeekBasedYear()));
     }
 }

@@ -36,6 +36,9 @@ public final class LifespanService implements Listener {
 
     public void start() {
         stop();
+        if (!plugin.settings().lifespan().enabled()) {
+            return;
+        }
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkExpirations, 20L * 60L, 20L * 60L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, 20L * 5L, 20L * 5L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::cleanupOrphanDisplays, 20L * 60L * 5L, 20L * 60L * 5L));
