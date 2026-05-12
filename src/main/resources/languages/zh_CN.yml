@@ -107,5 +107,5 @@ gui:
   total-trades: "<!i><green>总交易次数</green>"
   total-exp: "<!i><aqua>总消耗经验</aqua>"
   last-trade: "<!i><yellow>最后交易时间</yellow>"
-  never: "<!i><gray>从未</gray>"
+  never: "从未"
   top-empty: "<!i><red>暂无排行数据</red>"

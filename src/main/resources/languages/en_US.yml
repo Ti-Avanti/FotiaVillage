@@ -107,5 +107,5 @@ gui:
   total-trades: "<!i><green>Total Trades</green>"
   total-exp: "<!i><aqua>Total Experience Spent</aqua>"
   last-trade: "<!i><yellow>Last Trade</yellow>"
-  never: "<!i><gray>Never</gray>"
+  never: "Never"
   top-empty: "<!i><red>No leaderboard data</red>"
