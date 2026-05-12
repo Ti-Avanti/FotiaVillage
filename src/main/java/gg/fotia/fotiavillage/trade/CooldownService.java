@@ -28,13 +28,13 @@ public final class CooldownService {
             return;
         }
         int seconds = config.defaultCooldown();
-        int professionSeconds = config.perProfession().getOrDefault(profession, 0);
-        if (professionSeconds > 0) {
-            seconds = professionSeconds;
+        Integer professionSeconds = config.perProfession().get(profession);
+        if (professionSeconds != null) {
+            seconds = Math.max(0, professionSeconds);
         }
-        int itemSeconds = config.perItem().getOrDefault(itemType, 0);
-        if (itemSeconds > 0) {
-            seconds = Math.max(seconds, itemSeconds);
+        Integer itemSeconds = config.perItem().get(itemType);
+        if (itemSeconds != null) {
+            seconds = Math.max(0, itemSeconds);
         }
         seconds = (int) Math.ceil(seconds * groups.group(player).cooldownMultiplier());
         if (seconds > 0) {

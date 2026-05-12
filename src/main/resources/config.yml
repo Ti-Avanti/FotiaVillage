@@ -132,7 +132,7 @@ trade-control:
     enabled: true
     # 默认冷却（秒）
     default-cooldown: 300
-    # 按职业设置冷却
+    # 按职业覆盖默认冷却，填 0 表示该职业不加冷却
     per-profession:
       LIBRARIAN: 600
       WEAPONSMITH: 900
@@ -140,7 +140,7 @@ trade-control:
       TOOLSMITH: 720
       CLERIC: 480
       CARTOGRAPHER: 600
-    # 按交易结果物品设置冷却
+    # 按交易结果物品覆盖职业/默认冷却，填 0 表示该物品不加冷却
     per-item:
       DIAMOND: 1800
       ENCHANTED_BOOK: 1200
