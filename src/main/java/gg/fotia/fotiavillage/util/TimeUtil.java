@@ -4,7 +4,6 @@ import gg.fotia.fotiavillage.config.FotiaSettings;
 
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
-import java.util.Locale;
 
 public final class TimeUtil {
     private TimeUtil() {}
@@ -19,7 +18,7 @@ public final class TimeUtil {
     }
 
     private static String weeklyKey(LocalDate date) {
-        WeekFields weekFields = WeekFields.of(Locale.getDefault());
+        WeekFields weekFields = WeekFields.ISO;
         return date.get(weekFields.weekBasedYear()) + "-W" + String.format("%02d", date.get(weekFields.weekOfWeekBasedYear()));
     }
 }
