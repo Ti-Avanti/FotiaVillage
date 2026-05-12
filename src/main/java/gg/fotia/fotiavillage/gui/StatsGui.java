@@ -39,11 +39,11 @@ public final class StatsGui extends BaseGui {
 
         ArrayList<Map.Entry<String, Integer>> items = new ArrayList<>(stats.itemCounts().entrySet());
         items.sort(Map.Entry.comparingByValue(Comparator.reverseOrder()));
-        int slot = 29;
-        for (int i = 0; i < Math.min(7, items.size()); i++) {
+        int[] slots = {28, 29, 30, 31, 32, 33, 34};
+        for (int i = 0; i < Math.min(slots.length, items.size()); i++) {
             Map.Entry<String, Integer> entry = items.get(i);
             Material material = Material.matchMaterial(entry.getKey());
-            inventory.setItem(slot++, item(material == null ? Material.PAPER : material, Component.text(entry.getKey()), plugin.language().component("stats.item-line", Map.of("item", entry.getKey(), "count", entry.getValue()))));
+            inventory.setItem(slots[i], item(material == null ? Material.PAPER : material, Component.text(entry.getKey()), plugin.language().component("stats.item-line", Map.of("item", entry.getKey(), "count", entry.getValue()))));
         }
         inventory.setItem(49, item(Material.BARRIER, plugin.language().component("gui.close")));
     }
