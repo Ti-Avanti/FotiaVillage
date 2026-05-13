@@ -85,6 +85,22 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
                                 <filter>
+                                    <artifact>org.xerial:sqlite-jdbc</artifact>
+                                    <includes>
+                                        <include>org/sqlite/*.class</include>
+                                        <include>org/sqlite/core/**</include>
+                                        <include>org/sqlite/date/**</include>
+                                        <include>org/sqlite/javax/**</include>
+                                        <include>org/sqlite/jdbc3/**</include>
+                                        <include>org/sqlite/jdbc4/**</include>
+                                        <include>org/sqlite/util/**</include>
+                                        <include>org/sqlite/native/Linux/x86_64/**</include>
+                                        <include>org/sqlite/native/Windows/x86_64/**</include>
+                                        <include>META-INF/services/java.sql.Driver</include>
+                                        <include>META-INF/maven/org.xerial/sqlite-jdbc/**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>
