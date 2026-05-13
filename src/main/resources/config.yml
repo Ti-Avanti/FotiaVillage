@@ -16,6 +16,11 @@ placeholder:
   # 是否注册 FotiaVillage 变量
   enabled: true
 
+# 更新检测
+update-checker:
+  # 是否在启动/重载时检测 GitHub Release 新版本
+  enabled: true
+
 # 性能监控设置
 performance:
   # 是否启用自动性能报告

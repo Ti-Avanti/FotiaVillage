@@ -58,6 +58,7 @@ public final class ConfigService {
             config.getBoolean("debug", false),
             new FotiaSettings.Gui(config.getBoolean("gui.enabled", true)),
             new FotiaSettings.Placeholder(config.getBoolean("placeholder.enabled", true)),
+            new FotiaSettings.UpdateChecker(config.getBoolean("update-checker.enabled", true)),
             new FotiaSettings.Performance(
                 config.getBoolean("performance.auto-report", true),
                 atLeast(config.getInt("performance.report-interval", 300), 0),

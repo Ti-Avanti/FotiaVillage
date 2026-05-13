@@ -11,6 +11,13 @@ status:
   connected: "已连接"
   disconnected: "未连接"
 
+update:
+  no-release: "未找到 GitHub Release，发布页：{url}"
+  latest: "当前已是最新版本：{version}"
+  available-console: "发现新版本：当前 {current}，最新 {latest}，下载：{url}"
+  available-player: "<!i><yellow>发现 FotiaVillage 新版本：</yellow><red>{latest}</red><gray>（当前 {current}）</gray> <aqua>{url}</aqua>"
+  check-failed: "更新检测失败：{error}"
+
 time:
   duration-days-hours: "{days}天{hours}小时"
   duration-hours-minutes: "{hours}小时{minutes}分钟"

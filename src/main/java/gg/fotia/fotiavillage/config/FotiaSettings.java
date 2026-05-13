@@ -8,6 +8,7 @@ public record FotiaSettings(
     boolean debug,
     Gui gui,
     Placeholder placeholder,
+    UpdateChecker updateChecker,
     Performance performance,
     VillagerLimit villagerLimit,
     SpawnControl spawnControl,
@@ -17,6 +18,7 @@ public record FotiaSettings(
 ) {
     public record Gui(boolean enabled) {}
     public record Placeholder(boolean enabled) {}
+    public record UpdateChecker(boolean enabled) {}
     public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval) {}
     public record VillagerLimit(boolean enabled, int chunkRadius, int maxVillagers) {}
     public record SpawnControl(boolean blockNaturalSpawn, boolean allowCure, boolean allowSpawnEgg, boolean allowBreeding) {}

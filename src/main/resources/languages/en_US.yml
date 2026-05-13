@@ -11,6 +11,13 @@ status:
   connected: "connected"
   disconnected: "disconnected"
 
+update:
+  no-release: "No GitHub release was found. Release page: {url}"
+  latest: "You are running the latest version: {version}"
+  available-console: "New version available: current {current}, latest {latest}, download: {url}"
+  available-player: "<!i><yellow>New FotiaVillage version available:</yellow> <red>{latest}</red><gray> (current {current})</gray> <aqua>{url}</aqua>"
+  check-failed: "Update check failed: {error}"
+
 time:
   duration-days-hours: "{days}d {hours}h"
   duration-hours-minutes: "{hours}h {minutes}m"

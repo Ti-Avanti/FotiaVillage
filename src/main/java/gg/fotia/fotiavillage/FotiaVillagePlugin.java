@@ -16,6 +16,7 @@ import gg.fotia.fotiavillage.trade.EconomyBalanceService;
 import gg.fotia.fotiavillage.trade.PermissionGroupService;
 import gg.fotia.fotiavillage.trade.TradeLimitService;
 import gg.fotia.fotiavillage.trade.TradeService;
+import gg.fotia.fotiavillage.update.UpdateCheckService;
 import gg.fotia.fotiavillage.villager.VillagerControlListener;
 import gg.fotia.fotiavillage.villager.VillagerTracker;
 import org.bukkit.command.PluginCommand;
@@ -35,6 +36,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
     private CostScalingService costScalingService;
     private StatsService statsService;
     private GuiService guiService;
+    private UpdateCheckService updateCheckService;
     private FotiaPlaceholderExpansion placeholderExpansion;
 
     @Override
@@ -55,6 +57,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         costScalingService = new CostScalingService(this);
         statsService = new StatsService(this);
         guiService = new GuiService(this);
+        updateCheckService = new UpdateCheckService(this);
 
         villagerTracker.initialize();
         registerEvents();
@@ -62,6 +65,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         syncPlaceholder();
         lifespanService.start();
         performanceService.start();
+        updateCheckService.checkAsync();
         getLogger().info("FotiaVillage 已启用。语言: " + settings().language() + ", 数据库: " + (database().isConnected() ? "已连接" : "未连接"));
     }
 
@@ -81,6 +85,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         lifespanService.start();
         performanceService.start();
         syncPlaceholder();
+        updateCheckService.checkAsync();
     }
 
     public FotiaSettings settings() {
