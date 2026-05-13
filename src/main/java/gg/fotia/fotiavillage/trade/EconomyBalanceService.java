@@ -10,8 +10,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.PlayerInventory;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public final class EconomyBalanceService {
     private final FotiaVillagePlugin plugin;
+    private final Map<UUID, Integer> reservedExtraEmeralds = new HashMap<>();
 
     public EconomyBalanceService(FotiaVillagePlugin plugin) {
         this.plugin = plugin;
@@ -30,11 +35,33 @@ public final class EconomyBalanceService {
         if (extraEmeralds <= 0) {
             return true;
         }
-        int vanillaEmeralds = recipe.getIngredients().stream()
-            .filter(item -> item != null && item.getType() == Material.EMERALD)
-            .mapToInt(ItemStack::getAmount)
-            .sum();
-        return countEmeralds(player) + countMerchantInputEmeralds(player) >= vanillaEmeralds + extraEmeralds;
+        return availableExtraEmeralds(player, recipe) >= extraEmeralds + reservedExtraEmeralds.getOrDefault(player.getUniqueId(), 0);
+    }
+
+    public boolean reserveExtraEmeralds(Player player, MerchantRecipe recipe, int extraEmeralds) {
+        if (extraEmeralds <= 0) {
+            return true;
+        }
+        if (!hasEnoughExtraEmeralds(player, recipe, extraEmeralds)) {
+            return false;
+        }
+        reservedExtraEmeralds.merge(player.getUniqueId(), extraEmeralds, Integer::sum);
+        return true;
+    }
+
+    public void consumeReservedExtraEmeralds(Player player, int amount) {
+        try {
+            consumeExtraEmeralds(player, amount);
+        } finally {
+            releaseReservedExtraEmeralds(player, amount);
+        }
+    }
+
+    public void releaseReservedExtraEmeralds(Player player, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        reservedExtraEmeralds.computeIfPresent(player.getUniqueId(), (uuid, reserved) -> reserved > amount ? reserved - amount : null);
     }
 
     public void consumeExtraEmeralds(Player player, int amount) {
@@ -78,6 +105,14 @@ public final class EconomyBalanceService {
         item.setAmount(stackAmount - amount);
         inventory.setItem(slot, item);
         return 0;
+    }
+
+    private int availableExtraEmeralds(Player player, MerchantRecipe recipe) {
+        int vanillaEmeralds = recipe.getIngredients().stream()
+            .filter(item -> item != null && item.getType() == Material.EMERALD)
+            .mapToInt(ItemStack::getAmount)
+            .sum();
+        return countEmeralds(player) + countMerchantInputEmeralds(player) - vanillaEmeralds;
     }
 
     private int countEmeralds(Player player) {

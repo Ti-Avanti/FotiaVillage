@@ -43,8 +43,10 @@ public final class LanguageService {
     }
 
     public Component component(String key, Map<String, ?> replacements) {
-        String raw = raw(key, replacements);
-        if (raw.contains("<")) {
+        String template = template(key);
+        boolean miniMessageTemplate = template.contains("<");
+        String raw = applyReplacements(template, replacements, miniMessageTemplate);
+        if (miniMessageTemplate) {
             return miniMessage.deserialize(raw);
         }
         return legacy.deserialize(raw);
@@ -112,15 +114,24 @@ public final class LanguageService {
     }
 
     private String raw(String key, Map<String, ?> replacements) {
+        return applyReplacements(template(key), replacements, false);
+    }
+
+    private String template(String key) {
         String value = language.getString(key);
         if (value == null && defaults != null) {
             value = defaults.getString(key);
         }
-        if (value == null) {
-            value = "<!i><red>" + key + "</red>";
-        }
+        return value == null ? "<!i><red>" + key + "</red>" : value;
+    }
+
+    private String applyReplacements(String value, Map<String, ?> replacements, boolean escapeMiniMessageTags) {
         for (Map.Entry<String, ?> entry : replacements.entrySet()) {
-            value = value.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
+            String replacement = String.valueOf(entry.getValue());
+            if (escapeMiniMessageTags) {
+                replacement = miniMessage.escapeTags(replacement);
+            }
+            value = value.replace("{" + entry.getKey() + "}", replacement);
         }
         return value;
     }

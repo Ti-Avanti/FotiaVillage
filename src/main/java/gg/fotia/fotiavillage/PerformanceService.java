@@ -52,7 +52,10 @@ public final class PerformanceService {
     }
 
     public void cleanupExpiredData() {
-        plugin.database().cleanupExpired(System.currentTimeMillis(), TimeUtil.resetKey(plugin.settings().tradeControl().limit().resetPeriod()));
+        long now = System.currentTimeMillis();
+        int scalingResetHours = plugin.settings().tradeControl().costScaling().resetHours();
+        long scalingExpiresBefore = scalingResetHours > 0 ? now - scalingResetHours * 60L * 60L * 1000L : 0L;
+        plugin.database().cleanupExpired(now, TimeUtil.resetKey(plugin.settings().tradeControl().limit().resetPeriod()), scalingExpiresBefore);
     }
 
     private void reportIfNeeded() {

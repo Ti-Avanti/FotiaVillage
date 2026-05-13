@@ -63,6 +63,27 @@ public final class DatabaseService {
         }
     }
 
+    public synchronized void runInTransaction(Runnable action) {
+        try {
+            boolean autoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try {
+                action.run();
+                connection.commit();
+            } catch (RuntimeException ex) {
+                rollbackQuietly(ex);
+                throw ex;
+            } catch (SQLException ex) {
+                rollbackQuietly(ex);
+                throw new IllegalStateException("Failed to commit database transaction", ex);
+            } finally {
+                connection.setAutoCommit(autoCommit);
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to run database transaction", ex);
+        }
+    }
+
     public File file() {
         return file;
     }
@@ -78,11 +99,20 @@ public final class DatabaseService {
         execute("CREATE INDEX IF NOT EXISTS idx_player_stats_name_updated ON player_stats (player_name COLLATE NOCASE, updated_at DESC)");
         execute("CREATE INDEX IF NOT EXISTS idx_player_stats_rank ON player_stats (total_trades DESC, total_exp_spent DESC)");
         execute("CREATE INDEX IF NOT EXISTS idx_item_stats_uuid_count ON item_stats (uuid, trade_count DESC)");
+        execute("CREATE INDEX IF NOT EXISTS idx_trade_scaling_last_trade_time ON trade_scaling (last_trade_time)");
     }
 
     private void execute(String sql) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute(sql);
+        }
+    }
+
+    private void rollbackQuietly(Throwable cause) {
+        try {
+            connection.rollback();
+        } catch (SQLException rollbackEx) {
+            cause.addSuppressed(rollbackEx);
         }
     }
 
@@ -261,36 +291,38 @@ public final class DatabaseService {
 
     public synchronized void resetPlayer(UUID uuid) {
         String id = uuid.toString();
-        try {
-            deleteByUuid("player_stats", id);
-            deleteByUuid("item_stats", id);
-            deleteByUuid("trade_cooldowns", id);
-            deleteByUuid("trade_limits", id);
-            deleteByUuid("trade_scaling", id);
-        } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to reset player data", ex);
-        }
+        runInTransaction(() -> {
+            deleteByUuidUnchecked("player_stats", id);
+            deleteByUuidUnchecked("item_stats", id);
+            deleteByUuidUnchecked("trade_cooldowns", id);
+            deleteByUuidUnchecked("trade_limits", id);
+            deleteByUuidUnchecked("trade_scaling", id);
+        });
     }
 
     public synchronized void clearTradeData() {
-        try {
-            execute("DELETE FROM player_stats");
-            execute("DELETE FROM item_stats");
-            execute("DELETE FROM trade_cooldowns");
-            execute("DELETE FROM trade_limits");
-            execute("DELETE FROM trade_scaling");
-        } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to clear trade data", ex);
-        }
+        runInTransaction(() -> {
+            executeUnchecked("DELETE FROM player_stats", "Failed to clear player stats");
+            executeUnchecked("DELETE FROM item_stats", "Failed to clear item stats");
+            executeUnchecked("DELETE FROM trade_cooldowns", "Failed to clear trade cooldowns");
+            executeUnchecked("DELETE FROM trade_limits", "Failed to clear trade limits");
+            executeUnchecked("DELETE FROM trade_scaling", "Failed to clear trade scaling");
+        });
     }
 
-    public synchronized void cleanupExpired(long now, String currentResetKey) {
+    public synchronized void cleanupExpired(long now, String currentResetKey, long scalingExpiresBefore) {
         try (PreparedStatement cooldown = connection.prepareStatement("DELETE FROM trade_cooldowns WHERE cooldown_end < ?");
              PreparedStatement limits = connection.prepareStatement("DELETE FROM trade_limits WHERE reset_key <> ?")) {
             cooldown.setLong(1, now);
             cooldown.executeUpdate();
             limits.setString(1, currentResetKey);
             limits.executeUpdate();
+            if (scalingExpiresBefore > 0) {
+                try (PreparedStatement scaling = connection.prepareStatement("DELETE FROM trade_scaling WHERE last_trade_time > 0 AND last_trade_time <= ?")) {
+                    scaling.setLong(1, scalingExpiresBefore);
+                    scaling.executeUpdate();
+                }
+            }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to cleanup expired data", ex);
         }
@@ -317,6 +349,22 @@ public final class DatabaseService {
         try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM " + table + " WHERE uuid = ?")) {
             stmt.setString(1, uuid);
             stmt.executeUpdate();
+        }
+    }
+
+    private void deleteByUuidUnchecked(String table, String uuid) {
+        try {
+            deleteByUuid(table, uuid);
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to delete player data from " + table, ex);
+        }
+    }
+
+    private void executeUnchecked(String sql, String message) {
+        try {
+            execute(sql);
+        } catch (SQLException ex) {
+            throw new IllegalStateException(message, ex);
         }
     }
 }

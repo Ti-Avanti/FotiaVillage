@@ -76,13 +76,22 @@ public final class TradeService implements Listener {
             return;
         }
 
+        if (!economy.reserveExtraEmeralds(player, recipe, extraEmeralds)) {
+            event.setCancelled(true);
+            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", extraEmeralds));
+            return;
+        }
+
         double currentMultiplier = scaling.currentMultiplier(player, itemType);
         try {
-            cooldowns.record(player, profession, itemType);
-            limits.record(player, profession, itemType);
-            plugin.stats().record(player, itemType, expCost);
-            scaling.record(player, itemType);
+            plugin.database().runInTransaction(() -> {
+                cooldowns.record(player, profession, itemType);
+                limits.record(player, profession, itemType);
+                plugin.stats().record(player, itemType, expCost);
+                scaling.record(player, itemType);
+            });
         } catch (RuntimeException ex) {
+            economy.releaseReservedExtraEmeralds(player, extraEmeralds);
             event.setCancelled(true);
             plugin.language().prefixed(player, "trade.database-error");
             plugin.getLogger().log(Level.SEVERE, "Failed to persist trade data for " + player.getName(), ex);
@@ -91,7 +100,7 @@ public final class TradeService implements Listener {
 
         payExperience(player, expCost, trade.expCost());
         if (extraEmeralds > 0) {
-            plugin.getServer().getScheduler().runTask(plugin, () -> economy.consumeExtraEmeralds(player, extraEmeralds));
+            plugin.getServer().getScheduler().runTask(plugin, () -> economy.consumeReservedExtraEmeralds(player, extraEmeralds));
         }
         if (currentMultiplier > 1.0) {
             plugin.language().prefixed(player, "trade.scaling", Map.of("multiplier", String.format(Locale.ROOT, "%.1f", currentMultiplier)));

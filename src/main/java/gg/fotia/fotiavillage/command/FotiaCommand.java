@@ -140,12 +140,13 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
                     return;
                 }
                 PlayerTradeStats stats = plugin.stats().findByName(args[2]).orElse(null);
-                if (stats == null) {
+                Player onlineTarget = onlinePlayer(args[2]);
+                if (stats == null && onlineTarget == null) {
                     plugin.language().prefixed(sender, "player-not-found");
                     return;
                 }
-                plugin.database().resetPlayer(stats.uuid());
-                plugin.language().prefixed(sender, "admin.reset-success", Map.of("player", stats.playerName()));
+                plugin.database().resetPlayer(stats != null ? stats.uuid() : onlineTarget.getUniqueId());
+                plugin.language().prefixed(sender, "admin.reset-success", Map.of("player", stats != null ? stats.playerName() : onlineTarget.getName()));
             }
             case "clear" -> clear(sender, args);
             case "info" -> plugin.language().prefixed(sender, "admin.info", Map.of("version", plugin.getPluginMeta().getVersion(), "database", databaseStatus()));
@@ -260,6 +261,13 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
 
     private String databaseStatus() {
         return plugin.language().plain(plugin.database().isConnected() ? "status.connected" : "status.disconnected");
+    }
+
+    private Player onlinePlayer(String name) {
+        return Bukkit.getOnlinePlayers().stream()
+            .filter(player -> player.getName().equalsIgnoreCase(name))
+            .findFirst()
+            .orElse(null);
     }
 
     @Override
