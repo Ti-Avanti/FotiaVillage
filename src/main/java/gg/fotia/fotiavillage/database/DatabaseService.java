@@ -76,6 +76,9 @@ public final class DatabaseService {
             } catch (SQLException ex) {
                 rollbackQuietly(ex);
                 throw new IllegalStateException("Failed to commit database transaction", ex);
+            } catch (Error ex) {
+                rollbackQuietly(ex);
+                throw ex;
             } finally {
                 connection.setAutoCommit(autoCommit);
             }
