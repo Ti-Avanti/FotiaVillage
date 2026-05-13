@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -307,7 +308,7 @@ public final class DatabaseService {
                 while (rs.next()) {
                     result.put(rs.getString("item_type"), rs.getInt("trade_count"));
                 }
-                return Map.copyOf(result);
+                return Collections.unmodifiableMap(result);
             }
         }
     }
