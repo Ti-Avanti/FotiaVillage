@@ -12,6 +12,9 @@ public final class CostScalingService {
     }
 
     public double currentMultiplier(Player player, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return 1.0;
+        }
         FotiaSettings.CostScaling config = plugin.settings().tradeControl().costScaling();
         if (!config.enabled()) {
             return 1.0;
@@ -21,6 +24,9 @@ public final class CostScalingService {
     }
 
     public void record(Player player, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return;
+        }
         FotiaSettings.CostScaling config = plugin.settings().tradeControl().costScaling();
         if (!config.enabled()) {
             return;

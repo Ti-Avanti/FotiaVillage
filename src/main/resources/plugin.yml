@@ -1,7 +1,7 @@
 name: FotiaVillage
 version: '${project.version}'
 main: gg.fotia.fotiavillage.FotiaVillagePlugin
-api-version: '1.21'
+api-version: '${minecraft.api.version}'
 author: Ti_Avanti
 description: 村民数量、寿命、交易限制、统计与管理插件
 softdepend:

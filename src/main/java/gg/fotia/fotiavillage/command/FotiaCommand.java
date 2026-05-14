@@ -149,7 +149,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
                 plugin.language().prefixed(sender, "admin.reset-success", Map.of("player", stats != null ? stats.playerName() : onlineTarget.getName()));
             }
             case "clear" -> clear(sender, args);
-            case "info" -> plugin.language().prefixed(sender, "admin.info", Map.of("version", plugin.getPluginMeta().getVersion(), "database", databaseStatus()));
+            case "info" -> plugin.language().prefixed(sender, "admin.info", Map.of("version", plugin.getDescription().getVersion(), "database", databaseStatus()));
             default -> help(sender);
         }
     }

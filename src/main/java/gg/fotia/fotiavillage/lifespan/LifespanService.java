@@ -2,11 +2,10 @@ package gg.fotia.fotiavillage.lifespan;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import org.bukkit.NamespacedKey;
-import org.bukkit.entity.Display;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -24,7 +23,7 @@ public final class LifespanService implements Listener {
     private final NamespacedKey lifespanEndKey;
     private final NamespacedKey displayIdKey;
     private final NamespacedKey displayOwnerKey;
-    private final Map<UUID, TextDisplay> displays = new ConcurrentHashMap<>();
+    private final Map<UUID, ArmorStand> displays = new ConcurrentHashMap<>();
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
 
     public LifespanService(FotiaVillagePlugin plugin) {
@@ -76,7 +75,7 @@ public final class LifespanService implements Listener {
     }
 
     public void cleanupDisplay(Villager villager) {
-        TextDisplay display = displays.remove(villager.getUniqueId());
+        ArmorStand display = displays.remove(villager.getUniqueId());
         if (display != null && display.isValid()) {
             display.remove();
         }
@@ -185,20 +184,24 @@ public final class LifespanService implements Listener {
     }
 
     private void createOrUpdateDisplay(Villager villager) {
-        TextDisplay display = displays.get(villager.getUniqueId());
+        ArmorStand display = displays.get(villager.getUniqueId());
         if (display == null || !display.isValid()) {
             cleanupDisplay(villager);
-            display = (TextDisplay) villager.getWorld().spawnEntity(villager.getLocation().add(0, villager.getHeight() + 0.55, 0), EntityType.TEXT_DISPLAY);
+            display = (ArmorStand) villager.getWorld().spawnEntity(villager.getLocation().add(0, villager.getHeight() + 0.35, 0), EntityType.ARMOR_STAND);
             display.setPersistent(false);
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setSeeThrough(true);
-            display.setDefaultBackground(false);
+            display.setInvisible(true);
+            display.setMarker(true);
+            display.setGravity(false);
+            display.setSmall(true);
+            display.setSilent(true);
+            display.setInvulnerable(true);
+            display.setCustomNameVisible(true);
             display.getPersistentDataContainer().set(displayOwnerKey, PersistentDataType.STRING, villager.getUniqueId().toString());
             villager.addPassenger(display);
             displays.put(villager.getUniqueId(), display);
             villager.getPersistentDataContainer().set(displayIdKey, PersistentDataType.STRING, display.getUniqueId().toString());
         }
-        display.text(plugin.language().component(formatKey(villager), formatValues(villager)));
+        display.customName(plugin.language().component(formatKey(villager), formatValues(villager)));
     }
 
     private String formatKey(Villager villager) {
@@ -236,7 +239,7 @@ public final class LifespanService implements Listener {
 
     private void cleanupOrphanDisplays() {
         for (var world : plugin.getServer().getWorlds()) {
-            for (TextDisplay display : world.getEntitiesByClass(TextDisplay.class)) {
+            for (ArmorStand display : world.getEntitiesByClass(ArmorStand.class)) {
                 String owner = display.getPersistentDataContainer().get(displayOwnerKey, PersistentDataType.STRING);
                 if (owner == null) {
                     continue;
@@ -255,7 +258,7 @@ public final class LifespanService implements Listener {
 
     private void removeOwnedDisplays() {
         for (var world : plugin.getServer().getWorlds()) {
-            for (TextDisplay display : world.getEntitiesByClass(TextDisplay.class)) {
+            for (ArmorStand display : world.getEntitiesByClass(ArmorStand.class)) {
                 if (display.getPersistentDataContainer().has(displayOwnerKey, PersistentDataType.STRING)) {
                     display.remove();
                 }

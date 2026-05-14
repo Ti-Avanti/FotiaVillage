@@ -46,6 +46,11 @@ public final class TradeService implements Listener {
         String itemType = result.getType().name();
         String profession = profession(event.getVillager());
 
+        if (!trade.enabled()) {
+            recordStatsOnly(event, player, itemType);
+            return;
+        }
+
         if (trade.disableTrading()) {
             cancel(event, player, "trade.disabled");
             return;
@@ -104,6 +109,16 @@ public final class TradeService implements Listener {
         }
         if (currentMultiplier > 1.0) {
             plugin.language().prefixed(player, "trade.scaling", Map.of("multiplier", String.format(Locale.ROOT, "%.1f", currentMultiplier)));
+        }
+    }
+
+    private void recordStatsOnly(PlayerTradeEvent event, Player player, String itemType) {
+        try {
+            plugin.database().runInTransaction(() -> plugin.stats().record(player, itemType, 0));
+        } catch (RuntimeException ex) {
+            event.setCancelled(true);
+            plugin.language().prefixed(player, "trade.database-error");
+            plugin.getLogger().log(Level.SEVERE, "Failed to persist trade stats for " + player.getName(), ex);
         }
     }
 

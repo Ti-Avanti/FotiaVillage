@@ -15,6 +15,9 @@ public final class TradeLimitService {
     }
 
     public boolean canTrade(Player player, String profession, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return true;
+        }
         FotiaSettings.Limit config = plugin.settings().tradeControl().limit();
         if (!config.enabled()) {
             return true;
@@ -33,6 +36,9 @@ public final class TradeLimitService {
     }
 
     public void record(Player player, String profession, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return;
+        }
         FotiaSettings.Limit config = plugin.settings().tradeControl().limit();
         if (!config.enabled()) {
             return;
@@ -44,11 +50,17 @@ public final class TradeLimitService {
     }
 
     public int globalUsed(Player player) {
+        if (!plugin.settings().tradeControl().enabled() || !plugin.settings().tradeControl().limit().enabled()) {
+            return 0;
+        }
         FotiaSettings.Limit config = plugin.settings().tradeControl().limit();
         return plugin.database().getTradeCount(player.getUniqueId(), "global", "all", TimeUtil.resetKey(config.resetPeriod()));
     }
 
     public int globalLimit(Player player) {
+        if (!plugin.settings().tradeControl().enabled() || !plugin.settings().tradeControl().limit().enabled()) {
+            return 0;
+        }
         return plugin.settings().tradeControl().limit().globalLimit() + groups.group(player).dailyLimitBonus();
     }
 }

@@ -43,6 +43,8 @@ villager-limit:
 
 # 村民生成控制
 spawn-control:
+  # 是否启用村民生成控制（关闭后不拦截自然生成、治愈、刷怪蛋和繁殖）
+  enabled: true
   # 是否禁止自然生成
   block-natural-spawn: true
   # 是否允许治愈僵尸村民
@@ -73,6 +75,8 @@ villager-lifespan:
 
 # 交易控制
 trade-control:
+  # 是否启用交易控制（关闭后不执行禁用交易、经验消耗、成本递增、冷却、次数限制和额外绿宝石消耗；交易统计仍按 statistics 配置生效）
+  enabled: true
   # 是否完全禁用村民交易
   disable-trading: false
 
@@ -174,6 +178,8 @@ trade-control:
 
   # 权限组差异化配置，按 priority 从高到低匹配
   permission-groups:
+    # 是否启用权限组差异化（关闭后全部玩家使用 default 组倍率和加成）
+    enabled: true
     admin:
       permission: "fotiavillage.trade.admin"
       priority: 100

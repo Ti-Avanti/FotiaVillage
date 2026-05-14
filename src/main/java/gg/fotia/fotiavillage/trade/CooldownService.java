@@ -14,6 +14,9 @@ public final class CooldownService {
     }
 
     public long remaining(Player player, String profession, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return 0L;
+        }
         FotiaSettings.Cooldown config = plugin.settings().tradeControl().cooldown();
         if (!config.enabled()) {
             return 0L;
@@ -26,6 +29,9 @@ public final class CooldownService {
     }
 
     public void record(Player player, String profession, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return;
+        }
         FotiaSettings.Cooldown config = plugin.settings().tradeControl().cooldown();
         if (!config.enabled()) {
             return;

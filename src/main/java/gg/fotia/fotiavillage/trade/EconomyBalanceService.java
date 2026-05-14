@@ -23,6 +23,9 @@ public final class EconomyBalanceService {
     }
 
     public int requiredExtraEmeralds(ItemStack result) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return 0;
+        }
         FotiaSettings.EconomyBalance balance = plugin.settings().tradeControl().economyBalance();
         if (!balance.enabled() || !balance.requireExtraEmeralds()) {
             return 0;

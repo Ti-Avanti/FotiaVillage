@@ -27,12 +27,13 @@ public final class VillagerControlListener implements Listener {
             return;
         }
         FotiaSettings settings = plugin.settings();
+        boolean spawnControlEnabled = settings.spawnControl().enabled();
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
         if (reason == CreatureSpawnEvent.SpawnReason.CURED) {
             return;
         }
         if (isSpawnEgg(reason)) {
-            if (!settings.spawnControl().allowSpawnEgg()) {
+            if (spawnControlEnabled && !settings.spawnControl().allowSpawnEgg()) {
                 cancel(event, "villager.spawn-egg-blocked");
                 return;
             }
@@ -44,7 +45,7 @@ public final class VillagerControlListener implements Listener {
             return;
         }
         if (reason == CreatureSpawnEvent.SpawnReason.BREEDING) {
-            if (!settings.spawnControl().allowBreeding()) {
+            if (spawnControlEnabled && !settings.spawnControl().allowBreeding()) {
                 cancel(event, "villager.breeding-blocked");
                 return;
             }
@@ -55,7 +56,7 @@ public final class VillagerControlListener implements Listener {
             setLifespanLater(event);
             return;
         }
-        if (isNaturalSpawn(reason) && settings.spawnControl().blockNaturalSpawn()) {
+        if (spawnControlEnabled && isNaturalSpawn(reason) && settings.spawnControl().blockNaturalSpawn()) {
             cancel(event, "villager.spawn-blocked");
             return;
         }
@@ -72,7 +73,7 @@ public final class VillagerControlListener implements Listener {
             return;
         }
         FotiaSettings settings = plugin.settings();
-        if (!settings.spawnControl().allowCure()) {
+        if (settings.spawnControl().enabled() && !settings.spawnControl().allowCure()) {
             event.setCancelled(true);
             notifyNearby(event.getEntity().getLocation(), "villager.cure-blocked");
             return;

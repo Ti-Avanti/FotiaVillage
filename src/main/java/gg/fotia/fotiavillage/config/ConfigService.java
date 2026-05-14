@@ -71,6 +71,7 @@ public final class ConfigService {
                 atLeast(config.getInt("villager-limit.max-villagers", 5), 0)
             ),
             new FotiaSettings.SpawnControl(
+                config.getBoolean("spawn-control.enabled", true),
                 config.getBoolean("spawn-control.block-natural-spawn", true),
                 config.getBoolean("spawn-control.allow-cure", true),
                 config.getBoolean("spawn-control.allow-spawn-egg", true),
@@ -92,6 +93,7 @@ public final class ConfigService {
 
     private FotiaSettings.TradeControl readTradeControl(FileConfiguration config) {
         return new FotiaSettings.TradeControl(
+            config.getBoolean("trade-control.enabled", true),
             config.getBoolean("trade-control.disable-trading", false),
             new FotiaSettings.ExpCost(
                 config.getBoolean("trade-control.exp-cost.enabled", true),
@@ -123,6 +125,7 @@ public final class ConfigService {
                 readIntMap(config.getConfigurationSection("trade-control.limit.per-profession")),
                 readIntMap(config.getConfigurationSection("trade-control.limit.per-item"))
             ),
+            config.getBoolean("trade-control.permission-groups.enabled", true),
             readPermissionGroups(config.getConfigurationSection("trade-control.permission-groups")),
             new FotiaSettings.EconomyBalance(
                 config.getBoolean("trade-control.economy-balance.enabled", true),

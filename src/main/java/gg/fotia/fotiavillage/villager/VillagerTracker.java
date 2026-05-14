@@ -11,7 +11,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
@@ -97,17 +96,6 @@ public final class VillagerTracker implements Listener {
         if (event.getEntity() instanceof Villager) {
             decrement(event.getEntity().getChunk());
         }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onRemove(EntityRemoveEvent event) {
-        if (!(event.getEntity() instanceof Villager)) {
-            return;
-        }
-        if (event.getCause() == EntityRemoveEvent.Cause.DEATH || event.getCause() == EntityRemoveEvent.Cause.TRANSFORMATION || event.getCause() == EntityRemoveEvent.Cause.UNLOAD) {
-            return;
-        }
-        decrement(event.getEntity().getChunk());
     }
 
     private void scan(Chunk chunk) {

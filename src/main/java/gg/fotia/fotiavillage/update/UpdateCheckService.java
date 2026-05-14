@@ -38,7 +38,7 @@ public final class UpdateCheckService {
             HttpRequest request = HttpRequest.newBuilder(URI.create(LATEST_RELEASE_API))
                 .timeout(TIMEOUT)
                 .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "FotiaVillage/" + plugin.getPluginMeta().getVersion())
+                .header("User-Agent", "FotiaVillage/" + plugin.getDescription().getVersion())
                 .GET()
                 .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -70,7 +70,7 @@ public final class UpdateCheckService {
         }
         try {
             ReleaseInfo latest = parse(body);
-            String currentVersion = plugin.getPluginMeta().getVersion();
+            String currentVersion = plugin.getDescription().getVersion();
             if (compareVersions(currentVersion, latest.version()) < 0) {
                 plugin.getLogger().warning(plugin.language().plain("update.available-console", Map.of(
                     "current", currentVersion,
