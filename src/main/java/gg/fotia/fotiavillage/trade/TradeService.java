@@ -52,11 +52,7 @@ public final class TradeService implements Listener {
         if (recipe == null || recipe.getResult().getType().isAir()) {
             return;
         }
-        boolean outputClick = event.getRawSlot() == 2;
-        boolean collectToCursor = event.getAction() == InventoryAction.COLLECT_TO_CURSOR
-            && event.getCursor() != null
-            && event.getCursor().isSimilar(recipe.getResult());
-        if (!outputClick && !collectToCursor) {
+        if (!isTradeResultAction(event, recipe)) {
             return;
         }
         FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
@@ -74,6 +70,56 @@ public final class TradeService implements Listener {
         resyncCancelledTrade(player, recipe, cursor, true);
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onInventoryMerchantTrade(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (!(event.getView().getTopInventory() instanceof MerchantInventory inventory)) {
+            return;
+        }
+        Merchant merchant = inventory.getMerchant();
+        if (!shouldCommitFromInventoryClick(merchant)) {
+            return;
+        }
+        MerchantRecipe recipe = inventory.getSelectedRecipe();
+        if (recipe == null || recipe.getResult().getType().isAir() || !isTradeResultAction(event, recipe)) {
+            return;
+        }
+
+        String itemType = recipe.getResult().getType().name();
+        FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
+        ItemStack cursor = event.getCursor() == null ? new ItemStack(Material.AIR) : event.getCursor().clone();
+
+        if (!trade.enabled()) {
+            recordStatsOnly(player, itemType, () -> {
+                event.setCancelled(true);
+                event.setResult(Event.Result.DENY);
+                resyncCancelledTrade(player, recipe, cursor, true);
+            });
+            return;
+        }
+
+        String profession = profession(merchant);
+        TradeDecision decision = evaluate(player, recipe, profession);
+        if (!decision.allowed()) {
+            if (event.isCancelled()) {
+                return;
+            }
+            event.setCancelled(true);
+            event.setResult(Event.Result.DENY);
+            sendDecisionMessage(player, decision);
+            resyncCancelledTrade(player, recipe, cursor, true);
+            return;
+        }
+
+        commitTrade(player, recipe, profession, decision, () -> {
+            event.setCancelled(true);
+            event.setResult(Event.Result.DENY);
+            resyncCancelledTrade(player, recipe, cursor, true);
+        });
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerTrade(PlayerTradeEvent event) {
         Player player = event.getPlayer();
@@ -82,12 +128,15 @@ public final class TradeService implements Listener {
         if (result.getType().isAir()) {
             return;
         }
+        if (plugin.compatibility().isShopkeeper(event.getVillager())) {
+            return;
+        }
         FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
         String itemType = result.getType().name();
         String profession = profession(event.getVillager());
 
         if (!trade.enabled()) {
-            recordStatsOnly(event, player, itemType);
+            recordStatsOnly(player, itemType, () -> event.setCancelled(true));
             return;
         }
 
@@ -99,13 +148,48 @@ public final class TradeService implements Listener {
             return;
         }
 
-        if (!economy.reserveExtraEmeralds(player, recipe, decision.extraEmeralds())) {
+        commitTrade(player, recipe, profession, decision, () -> {
             event.setCancelled(true);
-            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", decision.extraEmeralds()));
             resyncCancelledTrade(player, recipe, null, false);
-            return;
+        });
+    }
+
+    private boolean isTradeResultAction(InventoryClickEvent event, MerchantRecipe recipe) {
+        ItemStack cursor = event.getCursor();
+        boolean cursorCanAccept = cursor == null || cursor.getType() == Material.AIR || cursor.isSimilar(recipe.getResult());
+        boolean outputClick = event.getRawSlot() == 2 && cursorCanAccept;
+        boolean collectToCursor = event.getAction() == InventoryAction.COLLECT_TO_CURSOR
+            && cursor != null
+            && cursor.isSimilar(recipe.getResult());
+        return outputClick || collectToCursor;
+    }
+
+    private boolean shouldCommitFromInventoryClick(Merchant merchant) {
+        if (merchant instanceof AbstractVillager abstractVillager) {
+            return plugin.compatibility().isShopkeeper(abstractVillager);
+        }
+        return true;
+    }
+
+    private void recordStatsOnly(Player player, String itemType, Runnable rollback) {
+        try {
+            plugin.database().runInTransaction(() -> plugin.stats().record(player, itemType, 0));
+        } catch (RuntimeException ex) {
+            rollback.run();
+            plugin.language().prefixed(player, "trade.database-error");
+            plugin.getLogger().log(Level.SEVERE, "Failed to persist trade stats for " + player.getName(), ex);
+        }
+    }
+
+    private boolean commitTrade(Player player, MerchantRecipe recipe, String profession, TradeDecision decision, Runnable rollback) {
+        if (!economy.reserveExtraEmeralds(player, recipe, decision.extraEmeralds())) {
+            rollback.run();
+            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", decision.extraEmeralds()));
+            return false;
         }
 
+        String itemType = recipe.getResult().getType().name();
+        FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
         double currentMultiplier = scaling.currentMultiplier(player, itemType);
         try {
             plugin.database().runInTransaction(() -> {
@@ -116,11 +200,10 @@ public final class TradeService implements Listener {
             });
         } catch (RuntimeException ex) {
             economy.releaseReservedExtraEmeralds(player, decision.extraEmeralds());
-            event.setCancelled(true);
+            rollback.run();
             plugin.language().prefixed(player, "trade.database-error");
-            resyncCancelledTrade(player, recipe, null, false);
             plugin.getLogger().log(Level.SEVERE, "Failed to persist trade data for " + player.getName(), ex);
-            return;
+            return false;
         }
 
         payExperience(player, decision.expCost(), trade.expCost());
@@ -130,16 +213,7 @@ public final class TradeService implements Listener {
         if (currentMultiplier > 1.0) {
             plugin.language().prefixed(player, "trade.scaling", Map.of("multiplier", String.format(Locale.ROOT, "%.1f", currentMultiplier)));
         }
-    }
-
-    private void recordStatsOnly(PlayerTradeEvent event, Player player, String itemType) {
-        try {
-            plugin.database().runInTransaction(() -> plugin.stats().record(player, itemType, 0));
-        } catch (RuntimeException ex) {
-            event.setCancelled(true);
-            plugin.language().prefixed(player, "trade.database-error");
-            plugin.getLogger().log(Level.SEVERE, "Failed to persist trade stats for " + player.getName(), ex);
-        }
+        return true;
     }
 
     private TradeDecision evaluate(Player player, MerchantRecipe recipe, String profession) {
