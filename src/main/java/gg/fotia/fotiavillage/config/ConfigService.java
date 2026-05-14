@@ -65,6 +65,12 @@ public final class ConfigService {
                 atLeast(config.getDouble("performance.low-tps-warning", 18.0), 0.0),
                 atLeast(config.getInt("performance.cleanup-expired-interval", 600), 0)
             ),
+            new FotiaSettings.Compatibility(
+                config.getBoolean("compatibility.shopkeepers.exclude-lifespan", true),
+                config.getBoolean("compatibility.citizens.exclude-lifespan", true),
+                config.getBoolean("compatibility.generic-npc-metadata.exclude-lifespan", true),
+                nonBlank(config.getString("compatibility.generic-npc-metadata.key", "NPC"), "NPC")
+            ),
             new FotiaSettings.VillagerLimit(
                 config.getBoolean("villager-limit.enabled", true),
                 atLeast(config.getInt("villager-limit.chunk-radius", 3), 0),
@@ -195,5 +201,12 @@ public final class ConfigService {
 
     private double atLeast(double value, double minimum) {
         return Math.max(value, minimum);
+    }
+
+    private String nonBlank(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
     }
 }

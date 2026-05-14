@@ -10,6 +10,7 @@ public record FotiaSettings(
     Placeholder placeholder,
     UpdateChecker updateChecker,
     Performance performance,
+    Compatibility compatibility,
     VillagerLimit villagerLimit,
     SpawnControl spawnControl,
     Lifespan lifespan,
@@ -20,6 +21,7 @@ public record FotiaSettings(
     public record Placeholder(boolean enabled) {}
     public record UpdateChecker(boolean enabled) {}
     public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval) {}
+    public record Compatibility(boolean excludeShopkeepersFromLifespan, boolean excludeCitizensFromLifespan, boolean excludeGenericNpcMetadataFromLifespan, String genericNpcMetadataKey) {}
     public record VillagerLimit(boolean enabled, int chunkRadius, int maxVillagers) {}
     public record SpawnControl(boolean enabled, boolean blockNaturalSpawn, boolean allowCure, boolean allowSpawnEgg, boolean allowBreeding) {}
     public record Lifespan(boolean enabled, int days, boolean notifyEnabled, int notifyRange, boolean autoAddEnabled, int autoAddCheckInterval, boolean autoAddCheckOnStartup) {}

@@ -212,7 +212,7 @@ public final class LifespanService implements Listener {
     }
 
     private boolean isExcluded(Villager villager) {
-        return plugin.compatibility().isShopkeepersVillager(villager);
+        return plugin.compatibility().isExcludedFromLifespan(villager);
     }
 
     private void clearLifespanData(Villager villager) {

@@ -32,6 +32,20 @@ performance:
   # 清理过期数据库记录的间隔（秒）
   cleanup-expired-interval: 600
 
+# 兼容设置
+compatibility:
+  shopkeepers:
+    # 是否让 Shopkeepers 商店村民跳过寿命系统
+    exclude-lifespan: true
+  citizens:
+    # 是否让 Citizens NPC（即使外观/实体类型是村民）跳过寿命系统
+    exclude-lifespan: true
+  generic-npc-metadata:
+    # 是否按通用 metadata 标记排除 NPC，兼容会给实体写入 NPC metadata 的插件
+    exclude-lifespan: true
+    # 通用 NPC metadata 名称，常见值为 NPC
+    key: NPC
+
 # 村民数量限制设置
 villager-limit:
   # 是否启用区域村民数量限制
