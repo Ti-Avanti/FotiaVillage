@@ -6,6 +6,7 @@ author: Ti_Avanti
 description: 村民数量、寿命、交易限制、统计与管理插件
 softdepend:
   - PlaceholderAPI
+  - Shopkeepers
 commands:
   fv:
     description: FotiaVillage 主命令

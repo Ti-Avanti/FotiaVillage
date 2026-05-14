@@ -86,8 +86,9 @@ public final class VillagerControlListener implements Listener {
         if (settings.lifespan().enabled()) {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (event.getTransformedEntity() instanceof Villager villager && villager.isValid() && !villager.isDead()) {
-                    plugin.lifespan().setLifespan(villager, settings.lifespan().days());
-                    notifyLifespanSet(villager, settings.lifespan().days());
+                    if (plugin.lifespan().setLifespan(villager, settings.lifespan().days())) {
+                        notifyLifespanSet(villager, settings.lifespan().days());
+                    }
                 }
             }, 10L);
         }
@@ -117,12 +118,13 @@ public final class VillagerControlListener implements Listener {
         if (!lifespan.enabled()) {
             return;
         }
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (event.getEntity() instanceof Villager villager && villager.isValid() && !villager.isDead()) {
-                plugin.lifespan().setLifespan(villager, lifespan.days());
-                notifyLifespanSet(villager, lifespan.days());
+                if (plugin.lifespan().setLifespan(villager, lifespan.days())) {
+                    notifyLifespanSet(villager, lifespan.days());
+                }
             }
-        });
+        }, 10L);
     }
 
     private void cancel(CreatureSpawnEvent event, String messageKey) {

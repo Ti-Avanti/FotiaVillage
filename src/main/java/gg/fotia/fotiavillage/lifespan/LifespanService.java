@@ -59,13 +59,21 @@ public final class LifespanService implements Listener {
         removeOwnedDisplays();
     }
 
-    public void setLifespan(Villager villager, int days) {
+    public boolean setLifespan(Villager villager, int days) {
+        if (isExcluded(villager)) {
+            clearLifespanData(villager);
+            return false;
+        }
         long end = System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L;
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
         createOrUpdateDisplay(villager);
+        return true;
     }
 
     public boolean hasLifespan(Villager villager) {
+        if (isExcluded(villager)) {
+            return false;
+        }
         return villager.getPersistentDataContainer().has(lifespanEndKey, PersistentDataType.LONG);
     }
 
@@ -97,6 +105,10 @@ public final class LifespanService implements Listener {
         int without = 0;
         for (var world : plugin.getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
                 total++;
                 if (!hasLifespan(villager)) {
                     without++;
@@ -110,6 +122,10 @@ public final class LifespanService implements Listener {
         int count = 0;
         for (var world : plugin.getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
                 if (!hasLifespan(villager)) {
                     setLifespan(villager, days);
                     count++;
@@ -123,6 +139,10 @@ public final class LifespanService implements Listener {
         ArrayList<String> lines = new ArrayList<>();
         for (var world : plugin.getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
                 if (!hasLifespan(villager)) {
                     lines.add(villager.getUniqueId().toString().substring(0, 8) + "|" + world.getName() + "|" + villager.getLocation().getBlockX() + "|" + villager.getLocation().getBlockY() + "|" + villager.getLocation().getBlockZ());
                 }
@@ -147,6 +167,10 @@ public final class LifespanService implements Listener {
         boolean removedAny = false;
         for (var world : plugin.getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
                 if (hasLifespan(villager) && remaining(villager) <= 0) {
                     cleanupDisplay(villager);
                     notifyExpired(villager);
@@ -166,6 +190,10 @@ public final class LifespanService implements Listener {
         }
         for (var world : plugin.getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
                 if (hasLifespan(villager)) {
                     createOrUpdateDisplay(villager);
                 }
@@ -183,7 +211,21 @@ public final class LifespanService implements Listener {
         }
     }
 
+    private boolean isExcluded(Villager villager) {
+        return plugin.compatibility().isShopkeepersVillager(villager);
+    }
+
+    private void clearLifespanData(Villager villager) {
+        cleanupDisplay(villager);
+        villager.getPersistentDataContainer().remove(lifespanEndKey);
+        villager.getPersistentDataContainer().remove(displayIdKey);
+    }
+
     private void createOrUpdateDisplay(Villager villager) {
+        if (isExcluded(villager)) {
+            clearLifespanData(villager);
+            return;
+        }
         ArmorStand display = displays.get(villager.getUniqueId());
         if (display == null || !display.isValid()) {
             cleanupDisplay(villager);

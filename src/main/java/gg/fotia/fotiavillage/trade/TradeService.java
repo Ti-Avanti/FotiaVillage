@@ -4,12 +4,18 @@ import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import gg.fotia.fotiavillage.util.ExperienceUtil;
 import io.papermc.paper.event.player.PlayerTradeEvent;
+import org.bukkit.Material;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Merchant;
+import org.bukkit.inventory.MerchantInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 
@@ -34,6 +40,40 @@ public final class TradeService implements Listener {
         this.scaling = scaling;
     }
 
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onMerchantOutputClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (!(event.getView().getTopInventory() instanceof MerchantInventory inventory)) {
+            return;
+        }
+        MerchantRecipe recipe = inventory.getSelectedRecipe();
+        if (recipe == null || recipe.getResult().getType().isAir()) {
+            return;
+        }
+        boolean outputClick = event.getRawSlot() == 2;
+        boolean collectToCursor = event.getAction() == InventoryAction.COLLECT_TO_CURSOR
+            && event.getCursor() != null
+            && event.getCursor().isSimilar(recipe.getResult());
+        if (!outputClick && !collectToCursor) {
+            return;
+        }
+        FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
+        if (!trade.enabled()) {
+            return;
+        }
+        TradeDecision decision = evaluate(player, recipe, profession(inventory.getMerchant()));
+        if (decision.allowed()) {
+            return;
+        }
+        ItemStack cursor = event.getCursor() == null ? new ItemStack(Material.AIR) : event.getCursor().clone();
+        event.setCancelled(true);
+        event.setResult(Event.Result.DENY);
+        sendDecisionMessage(player, decision);
+        resyncCancelledTrade(player, recipe, cursor, true);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerTrade(PlayerTradeEvent event) {
         Player player = event.getPlayer();
@@ -51,39 +91,18 @@ public final class TradeService implements Listener {
             return;
         }
 
-        if (trade.disableTrading()) {
-            cancel(event, player, "trade.disabled");
-            return;
-        }
-
-        long remainingCooldown = cooldowns.remaining(player, profession, itemType);
-        if (remainingCooldown > 0) {
+        TradeDecision decision = evaluate(player, recipe, profession);
+        if (!decision.allowed()) {
             event.setCancelled(true);
-            plugin.language().prefixed(player, "trade.cooldown", Map.of("time", plugin.language().formatDuration(remainingCooldown)));
+            sendDecisionMessage(player, decision);
+            resyncCancelledTrade(player, recipe, null, false);
             return;
         }
 
-        if (!limits.canTrade(player, profession, itemType)) {
-            cancel(event, player, "trade.limit-reached");
-            return;
-        }
-
-        int extraEmeralds = economy.requiredExtraEmeralds(result);
-        if (!economy.hasEnoughExtraEmeralds(player, recipe, extraEmeralds)) {
+        if (!economy.reserveExtraEmeralds(player, recipe, decision.extraEmeralds())) {
             event.setCancelled(true);
-            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", extraEmeralds));
-            return;
-        }
-
-        int expCost = calculateExpCost(player, profession, itemType);
-        if (trade.expCost().enabled() && expCost > 0 && !canPayExperience(player, expCost, trade.expCost())) {
-            event.setCancelled(true);
-            return;
-        }
-
-        if (!economy.reserveExtraEmeralds(player, recipe, extraEmeralds)) {
-            event.setCancelled(true);
-            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", extraEmeralds));
+            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", decision.extraEmeralds()));
+            resyncCancelledTrade(player, recipe, null, false);
             return;
         }
 
@@ -92,20 +111,21 @@ public final class TradeService implements Listener {
             plugin.database().runInTransaction(() -> {
                 cooldowns.record(player, profession, itemType);
                 limits.record(player, profession, itemType);
-                plugin.stats().record(player, itemType, expCost);
+                plugin.stats().record(player, itemType, decision.expCost());
                 scaling.record(player, itemType);
             });
         } catch (RuntimeException ex) {
-            economy.releaseReservedExtraEmeralds(player, extraEmeralds);
+            economy.releaseReservedExtraEmeralds(player, decision.extraEmeralds());
             event.setCancelled(true);
             plugin.language().prefixed(player, "trade.database-error");
+            resyncCancelledTrade(player, recipe, null, false);
             plugin.getLogger().log(Level.SEVERE, "Failed to persist trade data for " + player.getName(), ex);
             return;
         }
 
-        payExperience(player, expCost, trade.expCost());
-        if (extraEmeralds > 0) {
-            plugin.getServer().getScheduler().runTask(plugin, () -> economy.consumeReservedExtraEmeralds(player, extraEmeralds));
+        payExperience(player, decision.expCost(), trade.expCost());
+        if (decision.extraEmeralds() > 0) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> economy.consumeReservedExtraEmeralds(player, decision.extraEmeralds()));
         }
         if (currentMultiplier > 1.0) {
             plugin.language().prefixed(player, "trade.scaling", Map.of("multiplier", String.format(Locale.ROOT, "%.1f", currentMultiplier)));
@@ -122,9 +142,62 @@ public final class TradeService implements Listener {
         }
     }
 
-    private void cancel(PlayerTradeEvent event, Player player, String messageKey) {
-        event.setCancelled(true);
-        plugin.language().prefixed(player, messageKey);
+    private TradeDecision evaluate(Player player, MerchantRecipe recipe, String profession) {
+        ItemStack result = recipe.getResult();
+        String itemType = result.getType().name();
+        FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
+
+        if (trade.disableTrading()) {
+            return TradeDecision.block("trade.disabled");
+        }
+
+        long remainingCooldown = cooldowns.remaining(player, profession, itemType);
+        if (remainingCooldown > 0) {
+            return TradeDecision.block("trade.cooldown", Map.of("time", plugin.language().formatDuration(remainingCooldown)));
+        }
+
+        if (!limits.canTrade(player, profession, itemType)) {
+            return TradeDecision.block("trade.limit-reached");
+        }
+
+        int extraEmeralds = economy.requiredExtraEmeralds(result);
+        if (!economy.hasEnoughExtraEmeralds(player, recipe, extraEmeralds)) {
+            return TradeDecision.block("trade.insufficient-emerald", Map.of("required", extraEmeralds));
+        }
+
+        int expCost = calculateExpCost(player, profession, itemType);
+        if (trade.expCost().enabled() && expCost > 0) {
+            TradeDecision experienceDecision = canPayExperience(player, expCost, trade.expCost());
+            if (!experienceDecision.allowed()) {
+                return experienceDecision;
+            }
+        }
+
+        return TradeDecision.allow(expCost, extraEmeralds);
+    }
+
+    private void sendDecisionMessage(Player player, TradeDecision decision) {
+        if (decision.messageKey() != null) {
+            plugin.language().prefixed(player, decision.messageKey(), decision.replacements());
+        }
+    }
+
+    private void resyncCancelledTrade(Player player, MerchantRecipe recipe, ItemStack cursorSnapshot, boolean restoreCursor) {
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (restoreCursor) {
+                player.setItemOnCursor(cursorSnapshot == null ? new ItemStack(Material.AIR) : cursorSnapshot);
+            } else {
+                ItemStack cursor = player.getItemOnCursor();
+                if (cursor != null && cursor.getType() != Material.AIR && cursor.isSimilar(recipe.getResult())) {
+                    player.setItemOnCursor(new ItemStack(Material.AIR));
+                }
+            }
+            if (player.getOpenInventory().getTopInventory() instanceof MerchantInventory inventory) {
+                inventory.setItem(2, null);
+            }
+            player.updateInventory();
+            player.closeInventory();
+        });
     }
 
     private int calculateExpCost(Player player, String profession, String itemType) {
@@ -140,29 +213,25 @@ public final class TradeService implements Listener {
         return Math.max(0, total);
     }
 
-    private boolean canPayExperience(Player player, int amount, FotiaSettings.ExpCost config) {
+    private TradeDecision canPayExperience(Player player, int amount, FotiaSettings.ExpCost config) {
         if (config.costMode() == FotiaSettings.CostMode.POINTS) {
             int current = ExperienceUtil.getTotalExperience(player);
             if (current < amount) {
-                plugin.language().prefixed(player, "trade.insufficient-points", Map.of("required", amount, "current", current));
-                return false;
+                return TradeDecision.block("trade.insufficient-points", Map.of("required", amount, "current", current));
             }
             if (current - amount < ExperienceUtil.getExperienceForLevel(config.minLevel())) {
-                plugin.language().prefixed(player, "trade.min-level");
-                return false;
+                return TradeDecision.block("trade.min-level");
             }
-            return true;
+            return TradeDecision.allow(amount, 0);
         }
         int currentLevel = player.getLevel();
         if (currentLevel < amount) {
-            plugin.language().prefixed(player, "trade.insufficient-exp", Map.of("required", amount, "current", currentLevel));
-            return false;
+            return TradeDecision.block("trade.insufficient-exp", Map.of("required", amount, "current", currentLevel));
         }
         if (currentLevel - amount < config.minLevel()) {
-            plugin.language().prefixed(player, "trade.min-level");
-            return false;
+            return TradeDecision.block("trade.min-level");
         }
-        return true;
+        return TradeDecision.allow(amount, 0);
     }
 
     private void payExperience(Player player, int amount, FotiaSettings.ExpCost config) {
@@ -183,5 +252,26 @@ public final class TradeService implements Listener {
             return villager.getProfession().getKey().getKey().toUpperCase(Locale.ROOT);
         }
         return "WANDERING_TRADER";
+    }
+
+    private String profession(Merchant merchant) {
+        if (merchant instanceof AbstractVillager abstractVillager) {
+            return profession(abstractVillager);
+        }
+        return "CUSTOM";
+    }
+
+    private record TradeDecision(boolean allowed, String messageKey, Map<String, ?> replacements, int expCost, int extraEmeralds) {
+        static TradeDecision allow(int expCost, int extraEmeralds) {
+            return new TradeDecision(true, null, Map.of(), expCost, extraEmeralds);
+        }
+
+        static TradeDecision block(String messageKey) {
+            return block(messageKey, Map.of());
+        }
+
+        static TradeDecision block(String messageKey, Map<String, ?> replacements) {
+            return new TradeDecision(false, messageKey, replacements, 0, 0);
+        }
     }
 }

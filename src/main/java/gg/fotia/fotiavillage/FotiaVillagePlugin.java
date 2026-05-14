@@ -1,6 +1,7 @@
 package gg.fotia.fotiavillage;
 
 import gg.fotia.fotiavillage.command.FotiaCommand;
+import gg.fotia.fotiavillage.compat.CompatibilityService;
 import gg.fotia.fotiavillage.config.ConfigService;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import gg.fotia.fotiavillage.database.DatabaseService;
@@ -26,6 +27,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
     private ConfigService configService;
     private LanguageService languageService;
     private DatabaseService databaseService;
+    private CompatibilityService compatibilityService;
     private PerformanceService performanceService;
     private VillagerTracker villagerTracker;
     private LifespanService lifespanService;
@@ -47,6 +49,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         languageService.load();
         databaseService = new DatabaseService(this);
         databaseService.open();
+        compatibilityService = new CompatibilityService(this);
         performanceService = new PerformanceService(this);
         villagerTracker = new VillagerTracker(this);
         lifespanService = new LifespanService(this);
@@ -98,6 +101,10 @@ public final class FotiaVillagePlugin extends JavaPlugin {
 
     public DatabaseService database() {
         return databaseService;
+    }
+
+    public CompatibilityService compatibility() {
+        return compatibilityService;
     }
 
     public PerformanceService performance() {
