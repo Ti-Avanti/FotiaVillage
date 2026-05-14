@@ -144,6 +144,14 @@ public final class ConfigService {
                 config.getBoolean("trade-control.statistics.enabled", true),
                 config.getBoolean("trade-control.statistics.detailed-logging", true),
                 atLeast(config.getInt("trade-control.statistics.leaderboard-size", 10), 1)
+            ),
+            new FotiaSettings.TradeGuiDisplay(
+                config.getBoolean("trade-control.gui-display.enabled", true),
+                config.getBoolean("trade-control.gui-display.show-exp-cost", true),
+                config.getBoolean("trade-control.gui-display.show-exp-multiplier", true),
+                config.getBoolean("trade-control.gui-display.show-cooldown", true),
+                config.getBoolean("trade-control.gui-display.show-limits", true),
+                config.getBoolean("trade-control.gui-display.show-extra-emeralds", true)
             )
         );
     }

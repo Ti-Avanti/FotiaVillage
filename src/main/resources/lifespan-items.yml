@@ -24,7 +24,13 @@ items:
     permission: ""
     # 目标村民限制，列表为空表示不限制
     target:
-      # 村民职业，例如 NONE、FARMER、LIBRARIAN、MASON
+      # 村民职业 ID，配置时不需要写 minecraft: 前缀，大小写不敏感。
+      # 全部可用职业 ID：
+      # NONE（无职业）、ARMORER（盔甲匠）、BUTCHER（屠夫）、CARTOGRAPHER（制图师）、
+      # CLERIC（牧师）、FARMER（农民）、FISHERMAN（渔夫）、FLETCHER（制箭师）、
+      # LEATHERWORKER（皮匠）、LIBRARIAN（图书管理员）、MASON（石匠）、
+      # NITWIT（傻子）、SHEPHERD（牧羊人）、TOOLSMITH（工具匠）、WEAPONSMITH（武器匠）。
+      # 例如：FARMER、LIBRARIAN、MASON；列表为空表示不限制职业。
       professions:
         - FARMER
       # 村民类型，例如 PLAINS、DESERT、JUNGLE，留空表示不限制
@@ -61,6 +67,7 @@ items:
     consume-in-creative: false
     permission: ""
     target:
+      # 村民职业 ID 可参考上方 farmer_contract 示例中的完整列表。
       professions:
         - LIBRARIAN
       types: []

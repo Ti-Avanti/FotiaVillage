@@ -13,6 +13,8 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,6 +32,8 @@ import java.util.Set;
 
 public final class LifespanItemService {
     private final FotiaVillagePlugin plugin;
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
     private FileConfiguration config;
     private boolean enabled;
     private boolean requireSneaking;
@@ -65,6 +69,55 @@ public final class LifespanItemService {
             .filter(item -> stack.getAmount() >= item.requiredAmount())
             .filter(item -> item.matcher().matches(stack))
             .findFirst();
+    }
+
+    public List<String> itemIds() {
+        return items.stream()
+            .map(LifespanItem::id)
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .toList();
+    }
+
+    public Optional<LifespanItem> findItem(String id) {
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        return items.stream()
+            .filter(item -> item.id().equalsIgnoreCase(id))
+            .findFirst();
+    }
+
+    @SuppressWarnings("deprecation")
+    public Optional<ItemStack> createItem(String id, int amount) {
+        Optional<LifespanItem> configured = findItem(id);
+        if (configured.isEmpty()) {
+            return Optional.empty();
+        }
+        ItemMatcher matcher = configured.get().matcher();
+        if (matcher.material() == null) {
+            return Optional.empty();
+        }
+        ItemStack stack = new ItemStack(matcher.material(), Math.max(1, amount));
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return Optional.of(stack);
+        }
+        matcher.name().ifPresent(name -> meta.setDisplayName(renderItemText(name)));
+        matcher.lore().ifPresent(lore -> meta.setLore(lore.stream().map(this::renderItemText).toList()));
+        Optional<Integer> modelData = matcher.customModelData().isPresent() ? matcher.customModelData() : matcher.modelData();
+        modelData.ifPresent(meta::setCustomModelData);
+        matcher.damage().ifPresent(damage -> {
+            if (meta instanceof Damageable damageable) {
+                damageable.setDamage(Math.max(0, damage));
+            }
+        });
+        matcher.unbreakable().ifPresent(meta::setUnbreakable);
+        matcher.enchantments().forEach((enchantment, level) -> meta.addEnchant(enchantment, level, true));
+        if (!matcher.itemFlags().isEmpty()) {
+            meta.addItemFlags(matcher.itemFlags().toArray(ItemFlag[]::new));
+        }
+        stack.setItemMeta(meta);
+        return Optional.of(stack);
     }
 
     private void ensureDefault() {
@@ -260,6 +313,13 @@ public final class LifespanItemService {
         String colored = ChatColor.translateAlternateColorCodes('&', withoutTags);
         String stripped = ChatColor.stripColor(colored);
         return stripped == null ? "" : stripped.trim();
+    }
+
+    private String renderItemText(String value) {
+        if (value.contains("<")) {
+            return legacySection.serialize(miniMessage.deserialize(value));
+        }
+        return ChatColor.translateAlternateColorCodes('&', value);
     }
 
     public record LifespanItem(

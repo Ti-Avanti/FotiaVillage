@@ -36,6 +36,7 @@ help:
   admin: "<!i><yellow>/fv admin reset|clear|info</yellow> <gray>- Manage trade data</gray>"
   perf: "<!i><yellow>/fv perf [memory|database|tracker|cleanup]</yellow> <gray>- View performance info</gray>"
   lifespan: "<!i><yellow>/fv lifespan check|add|addtarget|list</yellow> <gray>- Manage villager lifespan</gray>"
+  item: "<!i><yellow>/fv item give <player> <item-id> [amount]</yellow> <gray>- Give lifespan items</gray>"
   kill: "<!i><yellow>/fv kill</yellow> <gray>- Remove all loaded villagers</gray>"
 
 villager:
@@ -68,6 +69,12 @@ lifespan:
   item-wrong-target: "<!i><red>This lifespan item cannot be used on that villager.</red>"
   item-excluded: "<!i><red>This villager is excluded by compatibility rules and cannot receive lifespan.</red>"
 
+item:
+  give-usage: "<!i><red>Usage: /fv item give <player> <item-id> [amount]</red>"
+  unknown: "<!i><red>Unknown lifespan item config: {item}</red>"
+  invalid-amount: "<!i><red>Amount must be an integer greater than 0.</red>"
+  give-success: "<!i><green>Gave <yellow>{amount}</yellow> lifespan item(s) <yellow>{item}</yellow> to <yellow>{player}</yellow>.</green>"
+
 trade:
   disabled: "<!i><red>Villager trading is disabled.</red>"
   cooldown: "<!i><red>This trade is cooling down. Remaining: </red><yellow>{time}</yellow>"
@@ -80,6 +87,20 @@ trade:
   exp-consumed-points: "<!i><yellow>Consumed <red>{amount}</red> experience points.</yellow>"
   scaling: "<!i><yellow>Current trade cost multiplier: </yellow><red>{multiplier}</red>"
   database-error: "<!i><red>Failed to save trade data. This trade has been cancelled.</red>"
+
+trade-gui:
+  header: "<!i><dark_gray>--- FotiaVillage Trade Limits ---</dark_gray>"
+  disabled: "<!i><red>Trade control is disabled</red>"
+  trading-disabled: "<!i><red>Villager trading is disabled</red>"
+  exp-cost-levels: "<!i><gray>Experience cost:</gray> <yellow>{amount} levels</yellow>"
+  exp-cost-points: "<!i><gray>Experience cost:</gray> <yellow>{amount} points</yellow>"
+  exp-multiplier: "<!i><gray>Experience multiplier:</gray> <yellow>x{multiplier}</yellow> <dark_gray>(scaling x{scaling} / group x{group})</dark_gray>"
+  cooldown-remaining: "<!i><gray>Cooldown remaining:</gray> <red>{time}</red>"
+  cooldown-next: "<!i><gray>Cooldown after trade:</gray> <yellow>{time}</yellow>"
+  limit-global: "<!i><gray>Global trades:</gray> <yellow>{used}/{limit}</yellow>"
+  limit-profession: "<!i><gray>Profession trades:</gray> <yellow>{used}/{limit}</yellow>"
+  limit-item: "<!i><gray>Item trades:</gray> <yellow>{used}/{limit}</yellow>"
+  extra-emeralds: "<!i><gray>Extra emeralds:</gray> <yellow>{amount}</yellow>"
 
 stats:
   no-data: "<!i><yellow>Player <gold>{player}</gold> has no trade records.</yellow>"

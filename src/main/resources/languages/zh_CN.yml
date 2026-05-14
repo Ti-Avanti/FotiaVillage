@@ -36,6 +36,7 @@ help:
   admin: "<!i><yellow>/fv admin reset|clear|info</yellow> <gray>- 管理交易数据</gray>"
   perf: "<!i><yellow>/fv perf [memory|database|tracker|cleanup]</yellow> <gray>- 查看性能信息</gray>"
   lifespan: "<!i><yellow>/fv lifespan check|add|addtarget|list</yellow> <gray>- 管理村民寿命</gray>"
+  item: "<!i><yellow>/fv item give <玩家> <道具ID> [数量]</yellow> <gray>- 给予寿命道具</gray>"
   kill: "<!i><yellow>/fv kill</yellow> <gray>- 移除所有已加载村民</gray>"
 
 villager:
@@ -68,6 +69,12 @@ lifespan:
   item-wrong-target: "<!i><red>这个寿命道具不能用于该村民。</red>"
   item-excluded: "<!i><red>该村民被兼容规则排除，不能添加寿命。</red>"
 
+item:
+  give-usage: "<!i><red>用法：/fv item give <玩家> <道具ID> [数量]</red>"
+  unknown: "<!i><red>未找到寿命道具配置：{item}</red>"
+  invalid-amount: "<!i><red>数量必须是大于 0 的整数。</red>"
+  give-success: "<!i><green>已给予 <yellow>{player}</yellow> <yellow>{amount}</yellow> 个寿命道具 <yellow>{item}</yellow>。</green>"
+
 trade:
   disabled: "<!i><red>村民交易已被禁用！</red>"
   cooldown: "<!i><red>该交易冷却中，剩余：</red><yellow>{time}</yellow>"
@@ -80,6 +87,20 @@ trade:
   exp-consumed-points: "<!i><yellow>消耗了 <red>{amount}</red> 点经验值。</yellow>"
   scaling: "<!i><yellow>该交易当前成本倍率：</yellow><red>{multiplier}</red>"
   database-error: "<!i><red>交易数据保存失败，本次交易已取消。</red>"
+
+trade-gui:
+  header: "<!i><dark_gray>--- FotiaVillage 交易限制 ---</dark_gray>"
+  disabled: "<!i><red>交易控制未启用</red>"
+  trading-disabled: "<!i><red>村民交易已禁用</red>"
+  exp-cost-levels: "<!i><gray>经验消耗：</gray><yellow>{amount} 级</yellow>"
+  exp-cost-points: "<!i><gray>经验消耗：</gray><yellow>{amount} 点</yellow>"
+  exp-multiplier: "<!i><gray>经验倍率：</gray><yellow>x{multiplier}</yellow> <dark_gray>(递增 x{scaling} / 权限 x{group})</dark_gray>"
+  cooldown-remaining: "<!i><gray>冷却剩余：</gray><red>{time}</red>"
+  cooldown-next: "<!i><gray>交易后冷却：</gray><yellow>{time}</yellow>"
+  limit-global: "<!i><gray>全局次数：</gray><yellow>{used}/{limit}</yellow>"
+  limit-profession: "<!i><gray>职业次数：</gray><yellow>{used}/{limit}</yellow>"
+  limit-item: "<!i><gray>物品次数：</gray><yellow>{used}/{limit}</yellow>"
+  extra-emeralds: "<!i><gray>额外绿宝石：</gray><yellow>{amount}</yellow>"
 
 stats:
   no-data: "<!i><yellow>玩家 <gold>{player}</gold> 暂无交易记录。</yellow>"

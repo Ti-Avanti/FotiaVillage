@@ -63,4 +63,49 @@ public final class TradeLimitService {
         }
         return plugin.settings().tradeControl().limit().globalLimit() + groups.group(player).dailyLimitBonus();
     }
+
+    public LimitStatus globalStatus(Player player) {
+        FotiaSettings.Limit config = plugin.settings().tradeControl().limit();
+        if (!plugin.settings().tradeControl().enabled() || !config.enabled()) {
+            return LimitStatus.disabled();
+        }
+        String resetKey = TimeUtil.resetKey(config.resetPeriod());
+        int limit = config.globalLimit() + groups.group(player).dailyLimitBonus();
+        int used = plugin.database().getTradeCount(player.getUniqueId(), "global", "all", resetKey);
+        return new LimitStatus(true, used, limit);
+    }
+
+    public LimitStatus professionStatus(Player player, String profession) {
+        FotiaSettings.Limit config = plugin.settings().tradeControl().limit();
+        if (!plugin.settings().tradeControl().enabled() || !config.enabled()) {
+            return LimitStatus.disabled();
+        }
+        int limit = config.perProfession().getOrDefault(profession, 0);
+        if (limit <= 0) {
+            return LimitStatus.disabled();
+        }
+        String resetKey = TimeUtil.resetKey(config.resetPeriod());
+        int used = plugin.database().getTradeCount(player.getUniqueId(), "profession", profession, resetKey);
+        return new LimitStatus(true, used, limit);
+    }
+
+    public LimitStatus itemStatus(Player player, String itemType) {
+        FotiaSettings.Limit config = plugin.settings().tradeControl().limit();
+        if (!plugin.settings().tradeControl().enabled() || !config.enabled()) {
+            return LimitStatus.disabled();
+        }
+        int limit = config.perItem().getOrDefault(itemType, 0);
+        if (limit <= 0) {
+            return LimitStatus.disabled();
+        }
+        String resetKey = TimeUtil.resetKey(config.resetPeriod());
+        int used = plugin.database().getTradeCount(player.getUniqueId(), "item", itemType, resetKey);
+        return new LimitStatus(true, used, limit);
+    }
+
+    public record LimitStatus(boolean enabled, int used, int limit) {
+        private static LimitStatus disabled() {
+            return new LimitStatus(false, 0, 0);
+        }
+    }
 }

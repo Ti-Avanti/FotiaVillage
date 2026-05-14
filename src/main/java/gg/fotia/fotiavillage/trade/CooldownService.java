@@ -42,6 +42,17 @@ public final class CooldownService {
         }
     }
 
+    public int cooldownSeconds(Player player, String profession, String itemType) {
+        if (!plugin.settings().tradeControl().enabled()) {
+            return 0;
+        }
+        FotiaSettings.Cooldown config = plugin.settings().tradeControl().cooldown();
+        if (!config.enabled()) {
+            return 0;
+        }
+        return cooldownSeconds(player, profession, itemType, config);
+    }
+
     private int cooldownSeconds(Player player, String profession, String itemType, FotiaSettings.Cooldown config) {
         int seconds = config.defaultCooldown();
         Integer professionSeconds = config.perProfession().get(profession);

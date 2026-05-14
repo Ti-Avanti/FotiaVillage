@@ -244,6 +244,21 @@ trade-control:
     # 排行榜显示数量
     leaderboard-size: 10
 
+  # 普通村民交易界面信息显示
+  # 只显示在普通村民交易结果物品说明上，不会显示到 Shopkeepers 商店 GUI。
+  gui-display:
+    enabled: true
+    # 显示本次交易需要消耗的经验
+    show-exp-cost: true
+    # 显示当前经验消耗倍率
+    show-exp-multiplier: true
+    # 显示交易冷却状态
+    show-cooldown: true
+    # 显示全局、职业、物品交易次数限制
+    show-limits: true
+    # 显示额外绿宝石消耗
+    show-extra-emeralds: true
+
 # 命令设置
 commands:
   # 是否启用 /fv kill

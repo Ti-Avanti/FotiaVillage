@@ -14,6 +14,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -46,6 +47,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             case "admin" -> admin(sender, args);
             case "perf" -> perf(sender, args);
             case "lifespan" -> lifespan(sender, args);
+            case "item" -> item(sender, args);
             case "kill" -> kill(sender);
             default -> plugin.language().prefixed(sender, "unknown-command", Map.of("command", args[0]));
         }
@@ -60,6 +62,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         plugin.language().send(sender, "help.admin");
         plugin.language().send(sender, "help.perf");
         plugin.language().send(sender, "help.lifespan");
+        plugin.language().send(sender, "help.item");
         plugin.language().send(sender, "help.kill");
     }
 
@@ -271,6 +274,64 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         ));
     }
 
+    private void item(CommandSender sender, String[] args) {
+        if (!require(sender, "fotiavillage.item.give")) return;
+        if (args.length < 2 || !args[1].equalsIgnoreCase("give")) {
+            plugin.language().prefixed(sender, "item.give-usage");
+            return;
+        }
+        if (args.length < 4) {
+            plugin.language().prefixed(sender, "item.give-usage");
+            return;
+        }
+        Player target = onlinePlayer(args[2]);
+        if (target == null) {
+            plugin.language().prefixed(sender, "player-not-found");
+            return;
+        }
+        String itemId = args[3];
+        if (plugin.lifespanItems().findItem(itemId).isEmpty()) {
+            plugin.language().prefixed(sender, "item.unknown", Map.of("item", itemId));
+            return;
+        }
+        int amount = 1;
+        if (args.length >= 5) {
+            Integer parsed = parsePositiveInt(args[4]);
+            if (parsed == null) {
+                plugin.language().prefixed(sender, "item.invalid-amount");
+                return;
+            }
+            amount = Math.min(parsed, 2304);
+        }
+        int given = giveConfiguredItem(target, itemId, amount);
+        if (given <= 0) {
+            plugin.language().prefixed(sender, "item.unknown", Map.of("item", itemId));
+            return;
+        }
+        plugin.language().prefixed(sender, "item.give-success", Map.of("player", target.getName(), "item", itemId, "amount", given));
+    }
+
+    private int giveConfiguredItem(Player target, String itemId, int amount) {
+        int remaining = amount;
+        int given = 0;
+        while (remaining > 0) {
+            ItemStack template = plugin.lifespanItems().createItem(itemId, 1).orElse(null);
+            if (template == null) {
+                break;
+            }
+            int stackAmount = Math.min(remaining, template.getMaxStackSize());
+            template.setAmount(stackAmount);
+            Map<Integer, ItemStack> leftovers = target.getInventory().addItem(template);
+            for (ItemStack leftover : leftovers.values()) {
+                target.getWorld().dropItemNaturally(target.getLocation(), leftover);
+            }
+            given += stackAmount;
+            remaining -= stackAmount;
+        }
+        target.updateInventory();
+        return given;
+    }
+
     private void kill(CommandSender sender) {
         if (!require(sender, "fotiavillage.kill")) return;
         if (!plugin.settings().commands().killEnabled()) {
@@ -343,12 +404,13 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return filter(args[0], "reload", "stats", "top", "admin", "perf", "lifespan", "kill");
+        if (args.length == 1) return filter(args[0], "reload", "stats", "top", "admin", "perf", "lifespan", "item", "kill");
         if (args.length == 2) {
             return switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "admin" -> filter(args[1], "reset", "clear", "info");
                 case "perf" -> filter(args[1], "overview", "memory", "database", "tracker", "cleanup");
                 case "lifespan" -> filter(args[1], "check", "add", "addtarget", "list");
+                case "item" -> filter(args[1], "give");
                 case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
                 default -> List.of();
             };
@@ -358,6 +420,14 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("admin") && args[1].equalsIgnoreCase("clear")) return filter(args[2], "confirm");
         if (args.length == 3 && args[0].equalsIgnoreCase("lifespan") && (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("addtarget"))) return filter(args[2], "1", "3", "7", "14", "30");
+        if (args.length == 3 && args[0].equalsIgnoreCase("item") && args[1].equalsIgnoreCase("give")) {
+            return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[2].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
+        }
+        if (args.length == 4 && args[0].equalsIgnoreCase("item") && args[1].equalsIgnoreCase("give")) {
+            String lower = args[3].toLowerCase(Locale.ROOT);
+            return plugin.lifespanItems().itemIds().stream().filter(id -> id.toLowerCase(Locale.ROOT).startsWith(lower)).collect(Collectors.toList());
+        }
+        if (args.length == 5 && args[0].equalsIgnoreCase("item") && args[1].equalsIgnoreCase("give")) return filter(args[4], "1", "8", "16", "32", "64");
         return List.of();
     }
 

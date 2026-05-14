@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -19,6 +20,7 @@ public final class LanguageService {
     private final FotiaVillagePlugin plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final LegacyComponentSerializer legacy = LegacyComponentSerializer.legacyAmpersand();
+    private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
     private FileConfiguration language;
     private FileConfiguration defaults;
     private String currentLanguage;
@@ -36,6 +38,7 @@ public final class LanguageService {
         }
         language = YamlConfiguration.loadConfiguration(langFile);
         defaults = loadDefaults(currentLanguage);
+        syncMissingDefaults(langFile);
     }
 
     public Component component(String key) {
@@ -58,6 +61,10 @@ public final class LanguageService {
 
     public String plain(String key, Map<String, ?> replacements) {
         return raw(key, replacements);
+    }
+
+    public String legacy(String key, Map<String, ?> replacements) {
+        return legacySection.serialize(component(key, replacements));
     }
 
     public String formatDuration(long milliseconds) {
@@ -149,6 +156,28 @@ public final class LanguageService {
         } catch (IOException ex) {
             plugin.getLogger().warning("Failed to load bundled language defaults: " + ex.getMessage());
             return null;
+        }
+    }
+
+    private void syncMissingDefaults(File langFile) {
+        if (defaults == null) {
+            return;
+        }
+        boolean changed = false;
+        for (String key : defaults.getKeys(true)) {
+            if (defaults.get(key) instanceof ConfigurationSection || language.isSet(key)) {
+                continue;
+            }
+            language.set(key, defaults.get(key));
+            changed = true;
+        }
+        if (!changed) {
+            return;
+        }
+        try {
+            language.save(langFile);
+        } catch (IOException ex) {
+            plugin.getLogger().warning("Failed to update missing language keys: " + ex.getMessage());
         }
     }
 }

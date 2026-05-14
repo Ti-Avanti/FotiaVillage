@@ -11,7 +11,7 @@ softdepend:
 commands:
   fv:
     description: FotiaVillage 主命令
-    usage: /fv <reload|stats|top|admin|perf|lifespan|kill>
+    usage: /fv <reload|stats|top|admin|perf|lifespan|item|kill>
     aliases:
       - fotiavillage
 permissions:
@@ -20,6 +20,7 @@ permissions:
     default: op
     children:
       fotiavillage.admin: true
+      fotiavillage.item.give: true
       fotiavillage.kill: true
       fotiavillage.stats: true
       fotiavillage.stats.others: true
@@ -29,6 +30,9 @@ permissions:
       fotiavillage.trade.admin: true
   fotiavillage.admin:
     description: 允许使用管理命令
+    default: op
+  fotiavillage.item.give:
+    description: 允许给予 FotiaVillage 配置寿命道具
     default: op
   fotiavillage.kill:
     description: 允许清理已加载村民

@@ -9,6 +9,7 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 - 区域村民数量限制：按区块半径统计村民数量，达到上限后阻止新的村民生成。
 - 村民生成控制：可分别控制自然生成、僵尸村民治愈、村民刷怪蛋和村民繁殖。
 - 村民寿命系统：为村民写入寿命数据，显示剩余时间，到期后自动移除并按配置通知玩家。
+- 寿命道具：可在 `lifespan-items.yml` 中配置不同道具，为不同职业、类型或名称的村民增加不同天数寿命。
 - 交易控制：支持完全禁用交易、经验消耗、成本递增、交易冷却、周期交易次数限制和额外绿宝石消耗。
 - 权限组差异化：内置 `admin`、`svip`、`vip`、`default` 交易权限组，可分别调整经验倍率、冷却倍率和周期交易上限加成。
 - 交易统计：使用 SQLite 保存玩家交易次数、消耗经验、物品统计、冷却、交易次数和成本倍率记录。
@@ -48,6 +49,7 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 | `villager-limit` | 区域村民数量限制，包含检测区块半径和最大村民数量。 |
 | `spawn-control` | 控制自然生成、治愈、刷怪蛋和繁殖。 |
 | `villager-lifespan` | 控制寿命天数、到期通知、自动补全寿命和检查间隔。 |
+| `lifespan-items.yml` | 配置寿命道具、可用目标村民职业 ID、使用消耗和物品匹配规则。 |
 | `trade-control.disable-trading` | 是否完全禁用村民交易。 |
 | `trade-control.exp-cost` | 交易经验消耗，支持等级或经验点模式。 |
 | `trade-control.cost-scaling` | 同一玩家对同一物品的交易成本递增。 |
@@ -81,7 +83,9 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 | `/fv perf cleanup` | `fotiavillage.admin` | 清理过期数据。 |
 | `/fv lifespan check` | `fotiavillage.admin` | 扫描已加载村民的寿命状态。 |
 | `/fv lifespan add [天数]` | `fotiavillage.admin` | 为未设置寿命的已加载村民补全寿命。 |
+| `/fv lifespan addtarget <天数>` | `fotiavillage.admin` | 给正在看着的指定村民增加寿命。 |
 | `/fv lifespan list` | `fotiavillage.admin` | 列出最多 10 个未设置寿命的已加载村民。 |
+| `/fv item give <玩家> <道具ID> [数量]` | `fotiavillage.item.give` | 按 `lifespan-items.yml` 配置给予寿命道具。 |
 | `/fv kill` | `fotiavillage.kill` | 移除所有已加载村民；还需要 `commands.kill-enabled: true`。 |
 
 ## 权限
@@ -90,6 +94,7 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 | --- | --- | --- |
 | `fotiavillage.*` | OP | 包含全部 FotiaVillage 权限。 |
 | `fotiavillage.admin` | OP | 使用管理命令。 |
+| `fotiavillage.item.give` | OP | 给予配置中的寿命道具。 |
 | `fotiavillage.kill` | OP | 使用 `/fv kill`。 |
 | `fotiavillage.stats` | 所有人 | 查看自己的交易统计。 |
 | `fotiavillage.stats.others` | OP | 查看其他玩家交易统计。 |
