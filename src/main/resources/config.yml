@@ -80,6 +80,9 @@ villager-lifespan:
   notify-range: 16
   # /fv lifespan addtarget 命令可选中村民的最大距离（格）
   command-target-range: 6.0
+  # 寿命到期后是否变成僵尸村民
+  # false：按原逻辑直接移除；true：在原位置生成僵尸村民并移除原村民
+  zombify-on-expire: false
   # 自动为没有寿命的村民补全寿命
   auto-add-lifespan:
     # 是否启用自动补全

@@ -49,6 +49,7 @@ villager:
 lifespan:
   set: "<!i><green>村民已获得 <yellow>{days}</yellow> 天寿命！</green>"
   expired: "<!i><red>一个村民的寿命已到期并消失了！</red>"
+  expired-zombified: "<!i><red>一个村民的寿命已到期并变成了僵尸村民！</red>"
   display-days: "<!i><yellow>剩余 {days}天 {hours}小时</yellow>"
   display-hours: "<!i><yellow>剩余 {hours}小时</yellow>"
   display-minutes: "<!i><yellow>剩余 {minutes}分钟</yellow>"

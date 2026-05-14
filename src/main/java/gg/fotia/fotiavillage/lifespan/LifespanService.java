@@ -7,6 +7,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.ZombieVillager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.persistence.PersistentDataType;
@@ -188,9 +189,7 @@ public final class LifespanService implements Listener {
                     continue;
                 }
                 if (hasLifespan(villager) && remaining(villager) <= 0) {
-                    cleanupDisplay(villager);
-                    notifyExpired(villager);
-                    villager.remove();
+                    expireVillager(villager);
                     removedAny = true;
                 }
             }
@@ -262,6 +261,28 @@ public final class LifespanService implements Listener {
         display.customName(plugin.language().component(formatKey(villager), formatValues(villager)));
     }
 
+    private void expireVillager(Villager villager) {
+        cleanupDisplay(villager);
+        boolean zombified = plugin.settings().lifespan().zombifyOnExpire() && spawnZombieVillager(villager);
+        notifyExpired(villager, zombified);
+        villager.remove();
+    }
+
+    private boolean spawnZombieVillager(Villager villager) {
+        try {
+            ZombieVillager zombie = (ZombieVillager) villager.getWorld().spawnEntity(villager.getLocation(), EntityType.ZOMBIE_VILLAGER);
+            zombie.setVillagerProfession(villager.getProfession());
+            zombie.setVillagerType(villager.getVillagerType());
+            zombie.setBaby(!villager.isAdult());
+            zombie.customName(villager.customName());
+            zombie.setCustomNameVisible(villager.isCustomNameVisible());
+            return true;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Failed to spawn zombie villager for expired villager: " + ex.getMessage());
+            return false;
+        }
+    }
+
     private String formatKey(Villager villager) {
         long seconds = remaining(villager) / 1000L;
         long minutes = seconds / 60L;
@@ -281,17 +302,18 @@ public final class LifespanService implements Listener {
         return Map.of("days", days, "hours", hours % 24L, "minutes", minutes, "seconds", seconds);
     }
 
-    private void notifyExpired(Villager villager) {
+    private void notifyExpired(Villager villager, boolean zombified) {
         if (!plugin.settings().lifespan().notifyEnabled()) {
             return;
         }
+        String key = zombified ? "lifespan.expired-zombified" : "lifespan.expired";
         int range = plugin.settings().lifespan().notifyRange();
         if (range <= 0) {
-            plugin.getServer().getOnlinePlayers().forEach(player -> plugin.language().prefixed(player, "lifespan.expired"));
+            plugin.getServer().getOnlinePlayers().forEach(player -> plugin.language().prefixed(player, key));
             return;
         }
         for (Player player : villager.getWorld().getNearbyPlayers(villager.getLocation(), range)) {
-            plugin.language().prefixed(player, "lifespan.expired");
+            plugin.language().prefixed(player, key);
         }
     }
 
