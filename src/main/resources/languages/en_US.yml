@@ -35,7 +35,7 @@ help:
   top: "<!i><yellow>/fv top</yellow> <gray>- View trade leaderboard</gray>"
   admin: "<!i><yellow>/fv admin reset|clear|info</yellow> <gray>- Manage trade data</gray>"
   perf: "<!i><yellow>/fv perf [memory|database|tracker|cleanup]</yellow> <gray>- View performance info</gray>"
-  lifespan: "<!i><yellow>/fv lifespan check|add|list</yellow> <gray>- Manage villager lifespan</gray>"
+  lifespan: "<!i><yellow>/fv lifespan check|add|addtarget|list</yellow> <gray>- Manage villager lifespan</gray>"
   kill: "<!i><yellow>/fv kill</yellow> <gray>- Remove all loaded villagers</gray>"
 
 villager:
@@ -55,9 +55,18 @@ lifespan:
   title: "<!i><gold>========== <yellow>Villager Lifespan</yellow> ==========</gold>"
   check: "<!i><yellow>Total:</yellow><white>{total}</white> <yellow>With lifespan:</yellow><green>{with}</green> <yellow>Without:</yellow><red>{without}</red>"
   add-success: "<!i><green>Added <yellow>{days}</yellow> days to <yellow>{count}</yellow> villagers.</green>"
+  addtarget-usage: "<!i><red>Usage: /fv lifespan addtarget <days>. Look at the target villager while running it.</red>"
+  invalid-days: "<!i><red>Days must be an integer greater than 0.</red>"
+  target-not-found: "<!i><red>Look at a target villager within the configured range.</red>"
+  target-success: "<!i><green>Added <yellow>{days}</yellow> days to the target villager. Remaining: <yellow>{time}</yellow>.</green>"
+  target-excluded: "<!i><red>This villager is excluded by compatibility rules and cannot receive lifespan.</red>"
   list-empty: "<!i><green>All villagers have lifespan data.</green>"
   list-line: "<!i><yellow>{id}</yellow> <gray>@</gray> <white>{world}</white> <gray>({x}, {y}, {z})</gray>"
   disabled: "<!i><red>The lifespan system is disabled.</red>"
+  item-success: "<!i><green>Used <yellow>{item}</yellow> to add <yellow>{days}</yellow> days to this villager. Remaining: <yellow>{time}</yellow>.</green>"
+  item-no-permission: "<!i><red>You do not have permission to use this lifespan item.</red>"
+  item-wrong-target: "<!i><red>This lifespan item cannot be used on that villager.</red>"
+  item-excluded: "<!i><red>This villager is excluded by compatibility rules and cannot receive lifespan.</red>"
 
 trade:
   disabled: "<!i><red>Villager trading is disabled.</red>"

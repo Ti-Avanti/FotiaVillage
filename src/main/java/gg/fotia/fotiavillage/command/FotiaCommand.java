@@ -11,8 +11,10 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -218,6 +220,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
                 int count = plugin.lifespan().addMissingLifespan(days);
                 plugin.language().prefixed(sender, "lifespan.add-success", Map.of("count", count, "days", days));
             }
+            case "addtarget" -> addTargetLifespan(sender, args);
             case "list" -> {
                 List<String> lines = plugin.lifespan().missingVillagerLines();
                 if (lines.isEmpty()) {
@@ -231,6 +234,41 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             }
             default -> plugin.language().prefixed(sender, "unknown-command", Map.of("command", args[1]));
         }
+    }
+
+    private void addTargetLifespan(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            plugin.language().prefixed(sender, "player-only");
+            return;
+        }
+        if (!plugin.settings().lifespan().enabled()) {
+            plugin.language().prefixed(sender, "lifespan.disabled");
+            return;
+        }
+        if (args.length < 3) {
+            plugin.language().prefixed(sender, "lifespan.addtarget-usage");
+            return;
+        }
+        Integer days = parsePositiveInt(args[2]);
+        if (days == null) {
+            plugin.language().prefixed(sender, "lifespan.invalid-days");
+            return;
+        }
+        Villager villager = targetVillager(player, plugin.settings().lifespan().commandTargetRange());
+        if (villager == null) {
+            plugin.language().prefixed(sender, "lifespan.target-not-found");
+            return;
+        }
+        long remaining = plugin.lifespan().addLifespan(villager, days);
+        if (remaining < 0L) {
+            plugin.language().prefixed(sender, "lifespan.target-excluded");
+            return;
+        }
+        plugin.language().prefixed(sender, "lifespan.target-success", Map.of(
+            "days", days,
+            "time", plugin.language().formatDuration(remaining),
+            "id", villager.getUniqueId().toString()
+        ));
     }
 
     private void kill(CommandSender sender) {
@@ -270,6 +308,39 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             .orElse(null);
     }
 
+    private Integer parsePositiveInt(String raw) {
+        try {
+            int value = Integer.parseInt(raw);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Villager targetVillager(Player player, double maxDistance) {
+        Vector eye = player.getEyeLocation().toVector();
+        Vector direction = player.getEyeLocation().getDirection().normalize();
+        Villager nearest = null;
+        double nearestProjection = maxDistance + 1.0D;
+        for (Entity entity : player.getWorld().getNearbyEntities(player.getEyeLocation(), maxDistance, maxDistance, maxDistance)) {
+            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                continue;
+            }
+            Vector target = villager.getLocation().add(0.0D, 1.0D, 0.0D).toVector();
+            Vector toTarget = target.clone().subtract(eye);
+            double projection = toTarget.dot(direction);
+            if (projection < 0.0D || projection > maxDistance || projection >= nearestProjection) {
+                continue;
+            }
+            Vector closest = eye.clone().add(direction.clone().multiply(projection));
+            if (closest.distanceSquared(target) <= 0.85D) {
+                nearest = villager;
+                nearestProjection = projection;
+            }
+        }
+        return nearest;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) return filter(args[0], "reload", "stats", "top", "admin", "perf", "lifespan", "kill");
@@ -277,7 +348,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             return switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "admin" -> filter(args[1], "reset", "clear", "info");
                 case "perf" -> filter(args[1], "overview", "memory", "database", "tracker", "cleanup");
-                case "lifespan" -> filter(args[1], "check", "add", "list");
+                case "lifespan" -> filter(args[1], "check", "add", "addtarget", "list");
                 case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
                 default -> List.of();
             };
@@ -286,7 +357,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[2].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("admin") && args[1].equalsIgnoreCase("clear")) return filter(args[2], "confirm");
-        if (args.length == 3 && args[0].equalsIgnoreCase("lifespan") && args[1].equalsIgnoreCase("add")) return filter(args[2], "1", "3", "7", "14", "30");
+        if (args.length == 3 && args[0].equalsIgnoreCase("lifespan") && (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("addtarget"))) return filter(args[2], "1", "3", "7", "14", "30");
         return List.of();
     }
 

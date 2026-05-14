@@ -88,6 +88,7 @@ public final class ConfigService {
                 atLeast(config.getInt("villager-lifespan.days", 7), 1),
                 config.getBoolean("villager-lifespan.notify-enabled", true),
                 atLeast(config.getInt("villager-lifespan.notify-range", 16), 0),
+                atLeast(config.getDouble("villager-lifespan.command-target-range", 6.0), 1.0),
                 config.getBoolean("villager-lifespan.auto-add-lifespan.enabled", true),
                 atLeast(config.getInt("villager-lifespan.auto-add-lifespan.check-interval", 300), 0),
                 config.getBoolean("villager-lifespan.auto-add-lifespan.check-on-startup", true)

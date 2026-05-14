@@ -78,6 +78,8 @@ villager-lifespan:
   notify-enabled: true
   # 通知范围（格，0 表示全服）
   notify-range: 16
+  # /fv lifespan addtarget 命令可选中村民的最大距离（格）
+  command-target-range: 6.0
   # 自动为没有寿命的村民补全寿命
   auto-add-lifespan:
     # 是否启用自动补全

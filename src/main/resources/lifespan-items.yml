@@ -1,0 +1,76 @@
+# 寿命道具设置
+# 玩家手持匹配的道具，下蹲右键指定村民时，会给该村民增加寿命。
+# 增加的寿命会叠加到当前剩余寿命上；没有寿命的村民会从当前时间开始计算。
+enabled: true
+
+# 是否必须下蹲右键才触发，建议保持开启，避免和普通村民交易冲突。
+require-sneaking: true
+
+items:
+  farmer_contract:
+    # 是否启用这个寿命道具
+    enabled: true
+    # 给目标村民增加的天数，不受 villager-lifespan.days 限制
+    days: 3
+    # 使用时至少需要手持的数量
+    required-amount: 1
+    # 使用成功后是否消耗道具
+    consume: true
+    # 每次使用成功消耗的数量
+    consume-amount: 1
+    # 创造模式是否也消耗道具
+    consume-in-creative: false
+    # 使用权限，留空表示不需要额外权限
+    permission: ""
+    # 目标村民限制，列表为空表示不限制
+    target:
+      # 村民职业，例如 NONE、FARMER、LIBRARIAN、MASON
+      professions:
+        - FARMER
+      # 村民类型，例如 PLAINS、DESERT、JUNGLE，留空表示不限制
+      types: []
+      # 村民自定义名称，留空表示不限制
+      names: []
+    item:
+      material: PAPER
+      name: "<!i><green>农民寿命契约</green>"
+      lore:
+        - "<!i><gray>下蹲右键农民</gray>"
+        - "<!i><yellow>增加 3 天寿命</yellow>"
+      # 旧版 CustomModelData
+      custom-model-data: 1001
+      # 兼容别名，和 custom-model-data 二选一即可
+      # model-data: 1001
+      # 新版 item_model；单 jar 会优先通过物品元数据序列化兼容匹配。
+      # item-model: "fotiavillage:farmer_lifespan_contract"
+      # 耐久损伤值，仅对有耐久的物品生效；不需要时不要填写。
+      # damage: 0
+      # 是否必须为不可破坏物品；不需要时不要填写。
+      # unbreakable: true
+      # 附魔要求，格式为 附魔: 等级；留空表示不限制。
+      enchantments: {}
+      # 物品标签要求，例如 HIDE_ENCHANTS、HIDE_ATTRIBUTES；留空表示不限制。
+      item-flags: []
+
+  librarian_contract:
+    enabled: true
+    days: 7
+    required-amount: 1
+    consume: true
+    consume-amount: 1
+    consume-in-creative: false
+    permission: ""
+    target:
+      professions:
+        - LIBRARIAN
+      types: []
+      names: []
+    item:
+      material: BOOK
+      name: "<!i><aqua>图书管理员寿命契约</aqua>"
+      lore:
+        - "<!i><gray>下蹲右键图书管理员</gray>"
+        - "<!i><yellow>增加 7 天寿命</yellow>"
+      custom-model-data: 1002
+      enchantments: {}
+      item-flags: []

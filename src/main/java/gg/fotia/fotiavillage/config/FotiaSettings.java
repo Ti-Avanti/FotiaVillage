@@ -24,7 +24,7 @@ public record FotiaSettings(
     public record Compatibility(boolean excludeShopkeepersFromLifespan, boolean excludeCitizensFromLifespan, boolean excludeGenericNpcMetadataFromLifespan, String genericNpcMetadataKey) {}
     public record VillagerLimit(boolean enabled, int chunkRadius, int maxVillagers) {}
     public record SpawnControl(boolean enabled, boolean blockNaturalSpawn, boolean allowCure, boolean allowSpawnEgg, boolean allowBreeding) {}
-    public record Lifespan(boolean enabled, int days, boolean notifyEnabled, int notifyRange, boolean autoAddEnabled, int autoAddCheckInterval, boolean autoAddCheckOnStartup) {}
+    public record Lifespan(boolean enabled, int days, boolean notifyEnabled, int notifyRange, double commandTargetRange, boolean autoAddEnabled, int autoAddCheckInterval, boolean autoAddCheckOnStartup) {}
     public record TradeControl(boolean enabled, boolean disableTrading, ExpCost expCost, CostScaling costScaling, Cooldown cooldown, Limit limit, boolean permissionGroupsEnabled, List<PermissionGroup> permissionGroups, EconomyBalance economyBalance, Statistics statistics) {}
     public record ExpCost(boolean enabled, CostMode costMode, int baseCost, Map<String, Integer> perProfession, Map<String, Integer> valuableItems, int minLevel) {}
     public enum CostMode { LEVEL, POINTS }

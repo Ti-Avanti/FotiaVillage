@@ -19,6 +19,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class LifespanService implements Listener {
+    private static final long DAY_MILLIS = 24L * 60L * 60L * 1000L;
+
     private final FotiaVillagePlugin plugin;
     private final NamespacedKey lifespanEndKey;
     private final NamespacedKey displayIdKey;
@@ -64,10 +66,24 @@ public final class LifespanService implements Listener {
             clearLifespanData(villager);
             return false;
         }
-        long end = System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L;
+        long end = safeAdd(System.currentTimeMillis(), daysToMillis(days));
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
         createOrUpdateDisplay(villager);
         return true;
+    }
+
+    public long addLifespan(Villager villager, int days) {
+        if (isExcluded(villager)) {
+            clearLifespanData(villager);
+            return -1L;
+        }
+        long now = System.currentTimeMillis();
+        Long currentEnd = villager.getPersistentDataContainer().get(lifespanEndKey, PersistentDataType.LONG);
+        long baseEnd = currentEnd == null ? now : Math.max(now, currentEnd);
+        long end = safeAdd(baseEnd, daysToMillis(days));
+        villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
+        createOrUpdateDisplay(villager);
+        return Math.max(0L, end - now);
     }
 
     public boolean hasLifespan(Villager villager) {
@@ -306,6 +322,18 @@ public final class LifespanService implements Listener {
                 }
             }
         }
+    }
+
+    private long daysToMillis(int days) {
+        return Math.max(1, days) * DAY_MILLIS;
+    }
+
+    private long safeAdd(long left, long right) {
+        long result = left + right;
+        if (((left ^ result) & (right ^ result)) < 0) {
+            return Long.MAX_VALUE;
+        }
+        return result;
     }
 
     public record LifespanScan(int total, int withLifespan, int withoutLifespan) {}

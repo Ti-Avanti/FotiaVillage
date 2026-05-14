@@ -8,6 +8,8 @@ import gg.fotia.fotiavillage.database.DatabaseService;
 import gg.fotia.fotiavillage.gui.GuiService;
 import gg.fotia.fotiavillage.language.LanguageService;
 import gg.fotia.fotiavillage.lifespan.LifespanDeathListener;
+import gg.fotia.fotiavillage.lifespan.LifespanItemListener;
+import gg.fotia.fotiavillage.lifespan.LifespanItemService;
 import gg.fotia.fotiavillage.lifespan.LifespanService;
 import gg.fotia.fotiavillage.placeholder.FotiaPlaceholderExpansion;
 import gg.fotia.fotiavillage.stats.StatsService;
@@ -31,6 +33,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
     private PerformanceService performanceService;
     private VillagerTracker villagerTracker;
     private LifespanService lifespanService;
+    private LifespanItemService lifespanItemService;
     private PermissionGroupService permissionGroupService;
     private EconomyBalanceService economyBalanceService;
     private TradeLimitService tradeLimitService;
@@ -53,6 +56,8 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         performanceService = new PerformanceService(this);
         villagerTracker = new VillagerTracker(this);
         lifespanService = new LifespanService(this);
+        lifespanItemService = new LifespanItemService(this);
+        lifespanItemService.load();
         permissionGroupService = new PermissionGroupService(this);
         economyBalanceService = new EconomyBalanceService(this);
         tradeLimitService = new TradeLimitService(this, permissionGroupService);
@@ -83,6 +88,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
 
     public void reloadRuntime() {
         configService.load();
+        lifespanItemService.load();
         languageService.load();
         villagerTracker.initialize();
         lifespanService.start();
@@ -119,6 +125,10 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         return lifespanService;
     }
 
+    public LifespanItemService lifespanItems() {
+        return lifespanItemService;
+    }
+
     public PermissionGroupService permissionGroups() {
         return permissionGroupService;
     }
@@ -140,6 +150,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new VillagerControlListener(this), this);
         getServer().getPluginManager().registerEvents(lifespanService, this);
         getServer().getPluginManager().registerEvents(new LifespanDeathListener(this), this);
+        getServer().getPluginManager().registerEvents(new LifespanItemListener(this), this);
         getServer().getPluginManager().registerEvents(new TradeService(this, permissionGroupService, economyBalanceService, tradeLimitService, cooldownService, costScalingService), this);
         getServer().getPluginManager().registerEvents(guiService, this);
     }

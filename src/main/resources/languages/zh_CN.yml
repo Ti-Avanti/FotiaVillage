@@ -35,7 +35,7 @@ help:
   top: "<!i><yellow>/fv top</yellow> <gray>- 查看交易排行榜</gray>"
   admin: "<!i><yellow>/fv admin reset|clear|info</yellow> <gray>- 管理交易数据</gray>"
   perf: "<!i><yellow>/fv perf [memory|database|tracker|cleanup]</yellow> <gray>- 查看性能信息</gray>"
-  lifespan: "<!i><yellow>/fv lifespan check|add|list</yellow> <gray>- 管理村民寿命</gray>"
+  lifespan: "<!i><yellow>/fv lifespan check|add|addtarget|list</yellow> <gray>- 管理村民寿命</gray>"
   kill: "<!i><yellow>/fv kill</yellow> <gray>- 移除所有已加载村民</gray>"
 
 villager:
@@ -55,9 +55,18 @@ lifespan:
   title: "<!i><gold>========== <yellow>村民寿命管理</yellow> ==========</gold>"
   check: "<!i><yellow>总村民数：</yellow><white>{total}</white> <yellow>有寿命：</yellow><green>{with}</green> <yellow>无寿命：</yellow><red>{without}</red>"
   add-success: "<!i><green>成功为 <yellow>{count}</yellow> 个村民添加 <yellow>{days}</yellow> 天寿命。</green>"
+  addtarget-usage: "<!i><red>用法：/fv lifespan addtarget <天数>，执行时需要看着目标村民。</red>"
+  invalid-days: "<!i><red>天数必须是大于 0 的整数。</red>"
+  target-not-found: "<!i><red>请看着配置距离内的目标村民。</red>"
+  target-success: "<!i><green>已为目标村民增加 <yellow>{days}</yellow> 天寿命，当前剩余 <yellow>{time}</yellow>。</green>"
+  target-excluded: "<!i><red>该村民被兼容规则排除，不能添加寿命。</red>"
   list-empty: "<!i><green>所有村民都已设置寿命。</green>"
   list-line: "<!i><yellow>{id}</yellow> <gray>@</gray> <white>{world}</white> <gray>({x}, {y}, {z})</gray>"
   disabled: "<!i><red>寿命系统未启用。</red>"
+  item-success: "<!i><green>已使用 <yellow>{item}</yellow> 为该村民增加 <yellow>{days}</yellow> 天寿命，当前剩余 <yellow>{time}</yellow>。</green>"
+  item-no-permission: "<!i><red>你没有权限使用这个寿命道具。</red>"
+  item-wrong-target: "<!i><red>这个寿命道具不能用于该村民。</red>"
+  item-excluded: "<!i><red>该村民被兼容规则排除，不能添加寿命。</red>"
 
 trade:
   disabled: "<!i><red>村民交易已被禁用！</red>"
