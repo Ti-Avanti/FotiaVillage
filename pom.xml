@@ -13,10 +13,10 @@
     <description>Modular villager control, lifespan, trade, statistics and GUI plugin for Paper.</description>
 
     <properties>
-        <java.version>21</java.version>
-        <paper.version>1.21.4-R0.1-SNAPSHOT</paper.version>
-        <minecraft.api.version>1.21</minecraft.api.version>
-        <minimessage.version>4.20.0</minimessage.version>
+        <java.version>17</java.version>
+        <paper.version>1.18.2-R0.1-SNAPSHOT</paper.version>
+        <minecraft.api.version>1.18</minecraft.api.version>
+        <minimessage.version>4.11.0</minimessage.version>
         <plugin.finalName>${project.artifactId}-${project.version}</plugin.finalName>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -132,36 +132,4 @@
         </plugins>
     </build>
 
-    <profiles>
-        <profile>
-            <id>mc1.18.2</id>
-            <properties>
-                <java.version>17</java.version>
-                <paper.version>1.18.2-R0.1-SNAPSHOT</paper.version>
-                <minecraft.api.version>1.18</minecraft.api.version>
-                <minimessage.version>4.11.0</minimessage.version>
-                <plugin.finalName>${project.artifactId}-${project.version}-mc1.18.2</plugin.finalName>
-            </properties>
-        </profile>
-        <profile>
-            <id>mc1.20.1</id>
-            <properties>
-                <java.version>17</java.version>
-                <paper.version>1.20.1-R0.1-SNAPSHOT</paper.version>
-                <minecraft.api.version>1.20</minecraft.api.version>
-                <minimessage.version>4.14.0</minimessage.version>
-                <plugin.finalName>${project.artifactId}-${project.version}-mc1.20.1</plugin.finalName>
-            </properties>
-        </profile>
-        <profile>
-            <id>mc1.20.4</id>
-            <properties>
-                <java.version>17</java.version>
-                <paper.version>1.20.4-R0.1-SNAPSHOT</paper.version>
-                <minecraft.api.version>1.20</minecraft.api.version>
-                <minimessage.version>4.16.0</minimessage.version>
-                <plugin.finalName>${project.artifactId}-${project.version}-mc1.20.4</plugin.finalName>
-            </properties>
-        </profile>
-    </profiles>
 </project>
