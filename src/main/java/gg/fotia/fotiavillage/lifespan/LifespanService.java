@@ -1,8 +1,15 @@
 package gg.fotia.fotiavillage.lifespan;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
+import gg.fotia.fotiavillage.config.FotiaSettings;
+import gg.fotia.fotiavillage.lifespan.display.ArmorStandLifespanDisplayRenderer;
+import gg.fotia.fotiavillage.lifespan.display.CustomNameplatesLifespanTagFormatter;
+import gg.fotia.fotiavillage.lifespan.display.DecentHologramsLifespanDisplayRenderer;
+import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayRenderer;
+import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayText;
+import gg.fotia.fotiavillage.lifespan.display.LifespanTagFormatter;
+import gg.fotia.fotiavillage.lifespan.display.TextDisplayLifespanDisplayRenderer;
 import org.bukkit.NamespacedKey;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -16,8 +23,6 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 public final class LifespanService implements Listener {
     private static final long DAY_MILLIS = 24L * 60L * 60L * 1000L;
@@ -26,18 +31,23 @@ public final class LifespanService implements Listener {
     private final NamespacedKey lifespanEndKey;
     private final NamespacedKey displayIdKey;
     private final NamespacedKey displayOwnerKey;
-    private final Map<UUID, ArmorStand> displays = new ConcurrentHashMap<>();
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
+    private LifespanTagFormatter tagFormatter;
+    private LifespanDisplayRenderer displayRenderer;
 
     public LifespanService(FotiaVillagePlugin plugin) {
         this.plugin = plugin;
         this.lifespanEndKey = new NamespacedKey(plugin, "lifespan_end");
         this.displayIdKey = new NamespacedKey(plugin, "lifespan_display");
         this.displayOwnerKey = new NamespacedKey(plugin, "lifespan_display_owner");
+        this.tagFormatter = LifespanDisplayText::plain;
+        this.displayRenderer = new ArmorStandLifespanDisplayRenderer(plugin, displayIdKey, displayOwnerKey, 0.65D);
     }
 
     public void start() {
         stop();
+        displayRenderer = createDisplayRenderer();
+        tagFormatter = createTagFormatter();
         if (!plugin.settings().lifespan().enabled()) {
             return;
         }
@@ -57,9 +67,9 @@ public final class LifespanService implements Listener {
     public void stop() {
         tasks.forEach(BukkitTask::cancel);
         tasks.clear();
-        displays.values().forEach(Entity::remove);
-        displays.clear();
-        removeOwnedDisplays();
+        if (displayRenderer != null) {
+            displayRenderer.removeAll();
+        }
     }
 
     public boolean setLifespan(Villager villager, int days) {
@@ -100,21 +110,7 @@ public final class LifespanService implements Listener {
     }
 
     public void cleanupDisplay(Villager villager) {
-        ArmorStand display = displays.remove(villager.getUniqueId());
-        if (display != null && display.isValid()) {
-            display.remove();
-        }
-        String id = villager.getPersistentDataContainer().get(displayIdKey, PersistentDataType.STRING);
-        if (id != null) {
-            try {
-                Entity entity = plugin.getServer().getEntity(UUID.fromString(id));
-                if (entity != null) {
-                    entity.remove();
-                }
-            } catch (IllegalArgumentException ignored) {
-            }
-            villager.getPersistentDataContainer().remove(displayIdKey);
-        }
+        displayRenderer.cleanup(villager);
     }
 
     public LifespanScan scan() {
@@ -241,24 +237,8 @@ public final class LifespanService implements Listener {
             clearLifespanData(villager);
             return;
         }
-        ArmorStand display = displays.get(villager.getUniqueId());
-        if (display == null || !display.isValid()) {
-            cleanupDisplay(villager);
-            display = (ArmorStand) villager.getWorld().spawnEntity(villager.getLocation().add(0, villager.getHeight() + 0.35, 0), EntityType.ARMOR_STAND);
-            display.setPersistent(false);
-            display.setInvisible(true);
-            display.setMarker(true);
-            display.setGravity(false);
-            display.setSmall(true);
-            display.setSilent(true);
-            display.setInvulnerable(true);
-            display.setCustomNameVisible(true);
-            display.getPersistentDataContainer().set(displayOwnerKey, PersistentDataType.STRING, villager.getUniqueId().toString());
-            villager.addPassenger(display);
-            displays.put(villager.getUniqueId(), display);
-            villager.getPersistentDataContainer().set(displayIdKey, PersistentDataType.STRING, display.getUniqueId().toString());
-        }
-        display.customName(plugin.language().component(formatKey(villager), formatValues(villager)));
+        LifespanDisplayText text = tagFormatter.format(plugin.language().component(formatKey(villager), formatValues(villager)));
+        displayRenderer.createOrUpdate(villager, text);
     }
 
     private void expireVillager(Villager villager) {
@@ -318,31 +298,69 @@ public final class LifespanService implements Listener {
     }
 
     private void cleanupOrphanDisplays() {
-        for (var world : plugin.getServer().getWorlds()) {
-            for (ArmorStand display : world.getEntitiesByClass(ArmorStand.class)) {
-                String owner = display.getPersistentDataContainer().get(displayOwnerKey, PersistentDataType.STRING);
-                if (owner == null) {
-                    continue;
-                }
-                Entity entity = null;
-                try {
-                    entity = plugin.getServer().getEntity(UUID.fromString(owner));
-                } catch (IllegalArgumentException ignored) {
-                }
-                if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
-                    display.remove();
-                }
-            }
+        displayRenderer.cleanupOrphans();
+    }
+
+    private LifespanDisplayRenderer createDisplayRenderer() {
+        FotiaSettings.LifespanDisplayMode mode = plugin.settings().lifespan().displayMode();
+        if (plugin.settings().lifespan().decentHologramsEnabled() || mode == FotiaSettings.LifespanDisplayMode.DECENT_HOLOGRAMS) {
+            return createDecentHologramsDisplayRenderer();
+        }
+        if (mode == FotiaSettings.LifespanDisplayMode.ARMOR_STAND) {
+            return new ArmorStandLifespanDisplayRenderer(plugin, displayIdKey, displayOwnerKey, displayHeightOffset());
+        }
+        return createTextDisplayOrFallback(mode == FotiaSettings.LifespanDisplayMode.TEXT_DISPLAY);
+    }
+
+    private LifespanDisplayRenderer createDecentHologramsDisplayRenderer() {
+        if (!plugin.getServer().getPluginManager().isPluginEnabled("DecentHolograms")) {
+            plugin.getLogger().warning("villager-lifespan.display.mode is DECENT_HOLOGRAMS, but DecentHolograms is not enabled. Falling back to AUTO.");
+            return createTextDisplayOrFallback(false);
+        }
+        try {
+            return new DecentHologramsLifespanDisplayRenderer(plugin, displayIdKey, displayHeightOffset());
+        } catch (LinkageError ex) {
+            plugin.getLogger().warning("Failed to hook DecentHolograms API: " + ex.getMessage() + ". Falling back to AUTO.");
+            return createTextDisplayOrFallback(false);
         }
     }
 
-    private void removeOwnedDisplays() {
-        for (var world : plugin.getServer().getWorlds()) {
-            for (ArmorStand display : world.getEntitiesByClass(ArmorStand.class)) {
-                if (display.getPersistentDataContainer().has(displayOwnerKey, PersistentDataType.STRING)) {
-                    display.remove();
-                }
-            }
+    private LifespanDisplayRenderer createTextDisplayOrFallback(boolean forcedTextDisplay) {
+        if (supportsTextDisplay()) {
+            return new TextDisplayLifespanDisplayRenderer(plugin, displayIdKey, displayOwnerKey, displayHeightOffset());
+        }
+        if (forcedTextDisplay) {
+            plugin.getLogger().warning("villager-lifespan.display.mode is TEXT_DISPLAY, but this server does not support TextDisplay. Falling back to ARMOR_STAND.");
+        }
+        return new ArmorStandLifespanDisplayRenderer(plugin, displayIdKey, displayOwnerKey, displayHeightOffset());
+    }
+
+    private double displayHeightOffset() {
+        return plugin.settings().lifespan().displayHeightOffset();
+    }
+
+    private LifespanTagFormatter createTagFormatter() {
+        if (!plugin.settings().lifespan().customNameplatesEnabled()) {
+            return LifespanDisplayText::plain;
+        }
+        if (!plugin.getServer().getPluginManager().isPluginEnabled("CustomNameplates")) {
+            plugin.getLogger().warning("villager-lifespan.display.custom-nameplates.enabled is true, but CustomNameplates is not enabled. Falling back to plain lifespan tag text.");
+            return LifespanDisplayText::plain;
+        }
+        try {
+            return new CustomNameplatesLifespanTagFormatter(plugin);
+        } catch (LinkageError ex) {
+            plugin.getLogger().warning("Failed to hook CustomNameplates API: " + ex.getMessage() + ". Falling back to plain lifespan tag text.");
+            return LifespanDisplayText::plain;
+        }
+    }
+
+    private boolean supportsTextDisplay() {
+        try {
+            EntityType.valueOf("TEXT_DISPLAY");
+            return true;
+        } catch (IllegalArgumentException ex) {
+            return false;
         }
     }
 

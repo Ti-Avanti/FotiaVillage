@@ -80,6 +80,23 @@ villager-lifespan:
   notify-range: 16
   # /fv lifespan addtarget 命令可选中村民的最大距离（格）
   command-target-range: 6.0
+  # 村民头顶寿命显示方式
+  # AUTO：1.19.4+ 自动使用 TEXT_DISPLAY，旧版本自动使用 ARMOR_STAND
+  # ARMOR_STAND：强制使用隐形盔甲架显示
+  # TEXT_DISPLAY：高版本强制使用 TextDisplay，旧版本自动回退到 ARMOR_STAND 并输出警告
+  # DECENT_HOLOGRAMS：强制使用 DecentHolograms 显示，插件未启用时自动回退到 AUTO
+  display:
+    mode: AUTO
+    # 村民头顶寿命 tag 高度偏移，数值越大越高
+    height-offset: 0.65
+    decent-holograms:
+      # 是否单独使用 DecentHolograms 作为村民寿命显示，开启后优先级高于 mode
+      enabled: false
+    custom-nameplates:
+      # 是否使用 CustomNameplates 的 nameplate 样式包装村民寿命 tag 文本
+      enabled: false
+      # 使用哪个 CustomNameplates nameplate，留空表示使用 CustomNameplates 默认名牌
+      nameplate-id: ""
   # 寿命到期后是否变成僵尸村民
   # false：按原逻辑直接移除；true：在原位置生成僵尸村民并移除原村民
   zombify-on-expire: false

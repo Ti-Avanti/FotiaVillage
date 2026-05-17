@@ -8,6 +8,8 @@ softdepend:
   - PlaceholderAPI
   - Shopkeepers
   - Citizens
+  - DecentHolograms
+  - CustomNameplates
 commands:
   fv:
     description: FotiaVillage 主命令

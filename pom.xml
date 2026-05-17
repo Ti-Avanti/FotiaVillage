@@ -6,7 +6,7 @@
 
     <groupId>gg.fotia</groupId>
     <artifactId>FotiaVillage</artifactId>
-    <version>1.0.7</version>
+    <version>1.0.8</version>
     <packaging>jar</packaging>
 
     <name>FotiaVillage</name>
@@ -14,7 +14,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <paper.version>1.18.2-R0.1-SNAPSHOT</paper.version>
+        <paper.version>1.20.4-R0.1-SNAPSHOT</paper.version>
         <minecraft.api.version>1.18</minecraft.api.version>
         <minimessage.version>4.11.0</minimessage.version>
         <plugin.finalName>${project.artifactId}-${project.version}</plugin.finalName>
@@ -30,6 +30,10 @@
             <id>placeholderapi</id>
             <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
         </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -43,6 +47,44 @@
             <groupId>me.clip</groupId>
             <artifactId>placeholderapi</artifactId>
             <version>2.11.6</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.decentsoftware-eu.decentholograms</groupId>
+            <artifactId>plugin</artifactId>
+            <version>2.9.6</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.decentsoftware-eu.decentholograms</groupId>
+                    <artifactId>shared</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.decentsoftware-eu.decentholograms</groupId>
+                    <artifactId>nms</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.decentsoftware-eu.decentholograms</groupId>
+                    <artifactId>nms-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bstats</groupId>
+                    <artifactId>bstats-bukkit</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>de.tr7zw</groupId>
+                    <artifactId>item-nbt-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.github.cryptomorin</groupId>
+                    <artifactId>XSeries</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.github.Xiao-MoMi</groupId>
+            <artifactId>Custom-Nameplates</artifactId>
+            <version>3.0.19</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
