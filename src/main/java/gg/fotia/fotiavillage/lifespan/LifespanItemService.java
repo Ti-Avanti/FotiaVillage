@@ -13,8 +13,6 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -32,8 +30,6 @@ import java.util.Set;
 
 public final class LifespanItemService {
     private final FotiaVillagePlugin plugin;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
-    private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
     private FileConfiguration config;
     private boolean enabled;
     private boolean requireSneaking;
@@ -316,10 +312,7 @@ public final class LifespanItemService {
     }
 
     private String renderItemText(String value) {
-        if (value.contains("<")) {
-            return legacySection.serialize(miniMessage.deserialize(value));
-        }
-        return ChatColor.translateAlternateColorCodes('&', value);
+        return plugin.language().legacyText(value);
     }
 
     public record LifespanItem(

@@ -1,9 +1,11 @@
 package gg.fotia.fotiavillage.language;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
+import gg.fotia.fotiavillage.util.LegacyColorConverter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -19,7 +21,6 @@ import java.util.Map;
 public final class LanguageService {
     private final FotiaVillagePlugin plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
-    private final LegacyComponentSerializer legacy = LegacyComponentSerializer.legacyAmpersand();
     private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
     private FileConfiguration language;
     private FileConfiguration defaults;
@@ -46,13 +47,11 @@ public final class LanguageService {
     }
 
     public Component component(String key, Map<String, ?> replacements) {
-        String template = template(key);
-        boolean miniMessageTemplate = template.contains("<");
-        String raw = applyReplacements(template, replacements, miniMessageTemplate);
-        if (miniMessageTemplate) {
-            return miniMessage.deserialize(raw);
-        }
-        return legacy.deserialize(raw);
+        return formattedComponent(template(key), replacements);
+    }
+
+    public String legacyText(String value) {
+        return legacySection.serialize(formattedComponent(value, Map.of()));
     }
 
     public String plain(String key) {
@@ -122,6 +121,17 @@ public final class LanguageService {
 
     private String raw(String key, Map<String, ?> replacements) {
         return applyReplacements(template(key), replacements, false);
+    }
+
+    private Component formattedComponent(String template, Map<String, ?> replacements) {
+        String normalized = LegacyColorConverter.convertToMiniMessage(template);
+        String raw = applyReplacements(normalized, replacements, true);
+        try {
+            return miniMessage.deserialize(raw);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Failed to parse MiniMessage text, falling back to legacy formatting: " + ex.getMessage());
+        }
+        return legacySection.deserialize(ChatColor.translateAlternateColorCodes('&', applyReplacements(template, replacements, false)));
     }
 
     private String template(String key) {
