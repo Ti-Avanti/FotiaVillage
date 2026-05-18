@@ -43,10 +43,34 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
                 DHAPI.createHologram(name, location, false, lines);
                 return;
             }
-            DHAPI.moveHologram(hologram, location);
+            moveHologram(hologram, location);
             DHAPI.setHologramLines(hologram, lines);
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Failed to update DecentHolograms lifespan display " + name + ": " + ex.getMessage());
+        }
+    }
+
+    @Override
+    public void tick() {
+        for (Map.Entry<UUID, String> entry : new ArrayList<>(hologramNames.entrySet())) {
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                removeHologram(entry.getValue());
+                hologramNames.remove(entry.getKey(), entry.getValue());
+                continue;
+            }
+            Hologram hologram = DHAPI.getHologram(entry.getValue());
+            if (hologram == null) {
+                hologramNames.remove(entry.getKey(), entry.getValue());
+                continue;
+            }
+            try {
+                moveHologram(hologram, displayLocation(villager));
+            } catch (RuntimeException ex) {
+                if (plugin.settings().debug()) {
+                    plugin.getLogger().warning("Failed to move DecentHolograms lifespan display " + entry.getValue() + ": " + ex.getMessage());
+                }
+            }
         }
     }
 
@@ -99,6 +123,14 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
 
     private Location displayLocation(Villager villager) {
         return villager.getLocation().add(0, villager.getHeight() + heightOffset, 0);
+    }
+
+    private void moveHologram(Hologram hologram, Location location) {
+        Location current = hologram.getLocation();
+        if (current != null && current.getWorld() == location.getWorld() && current.distanceSquared(location) < 0.0001D) {
+            return;
+        }
+        DHAPI.moveHologram(hologram, location);
     }
 
     private void removeHologram(String name) {

@@ -52,6 +52,7 @@ public final class LifespanService implements Listener {
             return;
         }
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkExpirations, 20L * 60L, 20L * 60L));
+        tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickDisplayRenderer, 1L, 1L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, 20L * 5L, 20L * 5L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::cleanupOrphanDisplays, 20L * 60L * 5L, 20L * 60L * 5L));
         if (plugin.settings().lifespan().autoAddEnabled() && plugin.settings().lifespan().autoAddCheckOnStartup()) {
@@ -299,6 +300,10 @@ public final class LifespanService implements Listener {
 
     private void cleanupOrphanDisplays() {
         displayRenderer.cleanupOrphans();
+    }
+
+    private void tickDisplayRenderer() {
+        displayRenderer.tick();
     }
 
     private LifespanDisplayRenderer createDisplayRenderer() {
