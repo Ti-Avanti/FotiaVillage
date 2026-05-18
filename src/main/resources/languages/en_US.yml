@@ -50,10 +50,6 @@ lifespan:
   set: "<!i><green>Villager lifespan set to <yellow>{days}</yellow> days.</green>"
   expired: "<!i><red>A villager has expired and disappeared.</red>"
   expired-zombified: "<!i><red>A villager has expired and turned into a zombie villager.</red>"
-  display-days: "<!i><yellow>{days}d {hours}h left</yellow>"
-  display-hours: "<!i><yellow>{hours}h left</yellow>"
-  display-minutes: "<!i><yellow>{minutes}m left</yellow>"
-  display-seconds: "<!i><red>{seconds}s left</red>"
   display-lines:
     - "<!i><yellow>{time} left</yellow>"
   title: "<!i><gold>========== <yellow>Villager Lifespan</yellow> ==========</gold>"
