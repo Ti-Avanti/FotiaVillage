@@ -2,7 +2,9 @@ package gg.fotia.fotiavillage.lifespan.display;
 
 import net.kyori.adventure.text.Component;
 
+import java.util.List;
+
 @FunctionalInterface
 public interface LifespanTagFormatter {
-    LifespanDisplayText format(Component text);
+    LifespanDisplayText format(List<Component> text);
 }

@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 public final class LanguageService {
@@ -48,6 +49,12 @@ public final class LanguageService {
 
     public Component component(String key, Map<String, ?> replacements) {
         return formattedComponent(template(key), replacements);
+    }
+
+    public List<Component> components(String key, Map<String, ?> replacements) {
+        return templateList(key).stream()
+            .map(template -> formattedComponent(template, replacements))
+            .toList();
     }
 
     public String legacyText(String value) {
@@ -140,6 +147,14 @@ public final class LanguageService {
             value = defaults.getString(key);
         }
         return value == null ? "<!i><red>" + key + "</red>" : value;
+    }
+
+    private List<String> templateList(String key) {
+        List<String> values = language.getStringList(key);
+        if (values.isEmpty() && defaults != null) {
+            values = defaults.getStringList(key);
+        }
+        return values.isEmpty() ? List.of(template(key)) : values;
     }
 
     private String applyReplacements(String value, Map<String, ?> replacements, boolean escapeMiniMessageTags) {

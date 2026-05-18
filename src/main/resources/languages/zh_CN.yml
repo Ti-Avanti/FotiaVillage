@@ -54,6 +54,8 @@ lifespan:
   display-hours: "<!i><yellow>剩余 {hours}小时</yellow>"
   display-minutes: "<!i><yellow>剩余 {minutes}分钟</yellow>"
   display-seconds: "<!i><red>剩余 {seconds}秒</red>"
+  display-lines:
+    - "<!i><yellow>剩余 {time}</yellow>"
   title: "<!i><gold>========== <yellow>村民寿命管理</yellow> ==========</gold>"
   check: "<!i><yellow>总村民数：</yellow><white>{total}</white> <yellow>有寿命：</yellow><green>{with}</green> <yellow>无寿命：</yellow><red>{without}</red>"
   add-success: "<!i><green>成功为 <yellow>{count}</yellow> 个村民添加 <yellow>{days}</yellow> 天寿命。</green>"

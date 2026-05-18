@@ -7,7 +7,9 @@ import net.momirealms.customnameplates.api.CustomNameplatesAPI;
 import net.momirealms.customnameplates.api.feature.nameplate.Nameplate;
 import net.momirealms.customnameplates.api.helper.AdventureHelper;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public final class CustomNameplatesLifespanTagFormatter implements LifespanTagFormatter {
@@ -21,7 +23,7 @@ public final class CustomNameplatesLifespanTagFormatter implements LifespanTagFo
     }
 
     @Override
-    public LifespanDisplayText format(Component text) {
+    public LifespanDisplayText format(List<Component> lines) {
         try {
             CustomNameplatesAPI api = CustomNameplatesAPI.getInstance();
             String configuredId = plugin.settings().lifespan().customNameplatesNameplateId();
@@ -29,17 +31,23 @@ public final class CustomNameplatesLifespanTagFormatter implements LifespanTagFo
             Nameplate nameplate = api.getNameplate(nameplateId).orElse(null);
             if (nameplate == null) {
                 warnMissingNameplate(nameplateId);
-                return LifespanDisplayText.plain(text);
+                return LifespanDisplayText.plain(lines);
             }
-            String tag = miniMessage.serialize(text);
-            float advance = api.getTextAdvance(tag);
-            String rawLine = AdventureHelper.surroundWithNameplatesFont(nameplate.createImagePrefix(advance, 0, 0))
-                + tag
-                + AdventureHelper.surroundWithNameplatesFont(nameplate.createImageSuffix(advance, 0, 0));
-            return new LifespanDisplayText(miniMessage.deserialize(rawLine), rawLine);
+            List<Component> components = new ArrayList<>();
+            List<String> rawLines = new ArrayList<>();
+            for (Component line : lines) {
+                String tag = miniMessage.serialize(line);
+                float advance = api.getTextAdvance(tag);
+                String rawLine = AdventureHelper.surroundWithNameplatesFont(nameplate.createImagePrefix(advance, 0, 0))
+                    + tag
+                    + AdventureHelper.surroundWithNameplatesFont(nameplate.createImageSuffix(advance, 0, 0));
+                components.add(miniMessage.deserialize(rawLine));
+                rawLines.add(rawLine);
+            }
+            return new LifespanDisplayText(components, rawLines);
         } catch (LinkageError | RuntimeException ex) {
             warnApiFailure(ex);
-            return LifespanDisplayText.plain(text);
+            return LifespanDisplayText.plain(lines);
         }
     }
 

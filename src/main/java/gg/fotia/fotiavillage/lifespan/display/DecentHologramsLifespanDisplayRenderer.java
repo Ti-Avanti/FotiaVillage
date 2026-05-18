@@ -36,7 +36,7 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
         villager.getPersistentDataContainer().set(displayIdKey, PersistentDataType.STRING, name);
 
         Location location = displayLocation(villager);
-        List<String> lines = List.of(text.hologramLine());
+        List<String> lines = text.hologramLines();
         try {
             Hologram hologram = DHAPI.getHologram(name);
             if (hologram == null) {

@@ -54,6 +54,8 @@ lifespan:
   display-hours: "<!i><yellow>{hours}h left</yellow>"
   display-minutes: "<!i><yellow>{minutes}m left</yellow>"
   display-seconds: "<!i><red>{seconds}s left</red>"
+  display-lines:
+    - "<!i><yellow>{time} left</yellow>"
   title: "<!i><gold>========== <yellow>Villager Lifespan</yellow> ==========</gold>"
   check: "<!i><yellow>Total:</yellow><white>{total}</white> <yellow>With lifespan:</yellow><green>{with}</green> <yellow>Without:</yellow><red>{without}</red>"
   add-success: "<!i><green>Added <yellow>{days}</yellow> days to <yellow>{count}</yellow> villagers.</green>"

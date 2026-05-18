@@ -18,11 +18,15 @@ import org.bukkit.entity.ZombieVillager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public final class LifespanService implements Listener {
     private static final long DAY_MILLIS = 24L * 60L * 60L * 1000L;
@@ -32,6 +36,8 @@ public final class LifespanService implements Listener {
     private final NamespacedKey displayIdKey;
     private final NamespacedKey displayOwnerKey;
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
+    private final Set<UUID> targetedVillagers = new HashSet<>();
+    private final Set<UUID> visibleVillagers = new HashSet<>();
     private LifespanTagFormatter tagFormatter;
     private LifespanDisplayRenderer displayRenderer;
 
@@ -53,6 +59,7 @@ public final class LifespanService implements Listener {
         }
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkExpirations, 20L * 60L, 20L * 60L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickDisplayRenderer, 1L, 1L));
+        tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateTargetedVillagers, 1L, plugin.settings().lifespan().displayVisibilityCheckIntervalTicks()));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, 20L * 5L, 20L * 5L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::cleanupOrphanDisplays, 20L * 60L * 5L, 20L * 60L * 5L));
         if (plugin.settings().lifespan().autoAddEnabled() && plugin.settings().lifespan().autoAddCheckOnStartup()) {
@@ -71,6 +78,8 @@ public final class LifespanService implements Listener {
         if (displayRenderer != null) {
             displayRenderer.removeAll();
         }
+        targetedVillagers.clear();
+        visibleVillagers.clear();
     }
 
     public boolean setLifespan(Villager villager, int days) {
@@ -80,7 +89,7 @@ public final class LifespanService implements Listener {
         }
         long end = safeAdd(System.currentTimeMillis(), daysToMillis(days));
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
-        createOrUpdateDisplay(villager);
+        refreshDisplay(villager);
         return true;
     }
 
@@ -94,7 +103,7 @@ public final class LifespanService implements Listener {
         long baseEnd = currentEnd == null ? now : Math.max(now, currentEnd);
         long end = safeAdd(baseEnd, daysToMillis(days));
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
-        createOrUpdateDisplay(villager);
+        refreshDisplay(villager);
         return Math.max(0L, end - now);
     }
 
@@ -111,6 +120,7 @@ public final class LifespanService implements Listener {
     }
 
     public void cleanupDisplay(Villager villager) {
+        visibleVillagers.remove(villager.getUniqueId());
         displayRenderer.cleanup(villager);
     }
 
@@ -207,7 +217,11 @@ public final class LifespanService implements Listener {
                     continue;
                 }
                 if (hasLifespan(villager)) {
-                    createOrUpdateDisplay(villager);
+                    if (shouldShowDisplay(villager)) {
+                        createOrUpdateDisplay(villager);
+                    } else {
+                        cleanupDisplay(villager);
+                    }
                 }
             }
         }
@@ -238,8 +252,17 @@ public final class LifespanService implements Listener {
             clearLifespanData(villager);
             return;
         }
-        LifespanDisplayText text = tagFormatter.format(plugin.language().component(formatKey(villager), formatValues(villager)));
+        LifespanDisplayText text = tagFormatter.format(plugin.language().components("lifespan.display-lines", formatValues(villager)));
         displayRenderer.createOrUpdate(villager, text);
+        visibleVillagers.add(villager.getUniqueId());
+    }
+
+    private void refreshDisplay(Villager villager) {
+        if (shouldShowDisplay(villager)) {
+            createOrUpdateDisplay(villager);
+        } else {
+            cleanupDisplay(villager);
+        }
     }
 
     private void expireVillager(Villager villager) {
@@ -264,23 +287,24 @@ public final class LifespanService implements Listener {
         }
     }
 
-    private String formatKey(Villager villager) {
-        long seconds = remaining(villager) / 1000L;
-        long minutes = seconds / 60L;
-        long hours = minutes / 60L;
-        long days = hours / 24L;
-        if (days > 0) return "lifespan.display-days";
-        if (hours > 0) return "lifespan.display-hours";
-        if (minutes > 0) return "lifespan.display-minutes";
-        return "lifespan.display-seconds";
-    }
-
     private Map<String, ?> formatValues(Villager villager) {
         long seconds = remaining(villager) / 1000L;
         long minutes = seconds / 60L;
         long hours = minutes / 60L;
         long days = hours / 24L;
-        return Map.of("days", days, "hours", hours % 24L, "minutes", minutes, "seconds", seconds);
+        return Map.ofEntries(
+            Map.entry("time", plugin.language().formatDuration(Math.max(0L, remaining(villager)))),
+            Map.entry("days", days),
+            Map.entry("hours", hours % 24L),
+            Map.entry("minutes", minutes % 60L),
+            Map.entry("seconds", seconds % 60L),
+            Map.entry("total_hours", hours),
+            Map.entry("total_minutes", minutes),
+            Map.entry("total_seconds", seconds),
+            Map.entry("profession", villager.getProfession().name()),
+            Map.entry("type", villager.getVillagerType().name()),
+            Map.entry("uuid", villager.getUniqueId())
+        );
     }
 
     private void notifyExpired(Villager villager, boolean zombified) {
@@ -304,6 +328,68 @@ public final class LifespanService implements Listener {
 
     private void tickDisplayRenderer() {
         displayRenderer.tick();
+    }
+
+    private void updateTargetedVillagers() {
+        FotiaSettings.LifespanDisplayVisibilityMode mode = plugin.settings().lifespan().displayVisibilityMode();
+        if (mode == FotiaSettings.LifespanDisplayVisibilityMode.ALWAYS) {
+            targetedVillagers.clear();
+            return;
+        }
+        Set<UUID> current = new HashSet<>();
+        double range = plugin.settings().lifespan().displayLookAtRange();
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            RayTraceResult result = player.getWorld().rayTraceEntities(
+                player.getEyeLocation(),
+                player.getEyeLocation().getDirection(),
+                range,
+                0.3D,
+                entity -> entity instanceof Villager villager && hasLifespan(villager) && player.hasLineOfSight(villager)
+            );
+            if (result != null && result.getHitEntity() instanceof Villager villager) {
+                current.add(villager.getUniqueId());
+            }
+        }
+        targetedVillagers.clear();
+        targetedVillagers.addAll(current);
+        updateDisplayVisibility();
+    }
+
+    private boolean shouldShowDisplay(Villager villager) {
+        FotiaSettings.LifespanDisplayVisibilityMode mode = plugin.settings().lifespan().displayVisibilityMode();
+        if (mode == FotiaSettings.LifespanDisplayVisibilityMode.ALWAYS) {
+            return true;
+        }
+        if (mode == FotiaSettings.LifespanDisplayVisibilityMode.LOOK_AT_OR_LOW_LIFESPAN && isLowLifespan(villager)) {
+            return true;
+        }
+        return targetedVillagers.contains(villager.getUniqueId());
+    }
+
+    private boolean isLowLifespan(Villager villager) {
+        int threshold = plugin.settings().lifespan().displayLowLifespanAlwaysShowSeconds();
+        return threshold > 0 && remaining(villager) <= threshold * 1000L;
+    }
+
+    private void updateDisplayVisibility() {
+        for (var world : plugin.getServer().getWorlds()) {
+            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
+                if (!hasLifespan(villager)) {
+                    continue;
+                }
+                boolean shouldShow = shouldShowDisplay(villager);
+                boolean isVisible = visibleVillagers.contains(villager.getUniqueId());
+                if (shouldShow && !isVisible) {
+                    createOrUpdateDisplay(villager);
+                } else if (!shouldShow && isVisible) {
+                    cleanupDisplay(villager);
+                }
+            }
+        }
     }
 
     private LifespanDisplayRenderer createDisplayRenderer() {

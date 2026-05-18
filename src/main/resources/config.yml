@@ -89,6 +89,18 @@ villager-lifespan:
     mode: AUTO
     # 村民头顶寿命 tag 高度偏移，数值越大越高
     height-offset: 0.65
+    # 村民头顶寿命 tag 显示条件
+    visibility:
+      # ALWAYS：一直显示
+      # LOOK_AT：只有玩家准星对准村民时显示
+      # LOOK_AT_OR_LOW_LIFESPAN：准星对准时显示；寿命低于阈值时一直显示
+      mode: ALWAYS
+      # 玩家准星检测距离（格）
+      look-at-range: 16.0
+      # 准星检测间隔（tick），值越小越灵敏
+      check-interval-ticks: 5
+      # 寿命低于多少秒时一直显示；0 表示不启用低寿命常显
+      low-lifespan-always-show-seconds: 3600
     decent-holograms:
       # 是否单独使用 DecentHolograms 作为村民寿命显示，开启后优先级高于 mode
       enabled: false
