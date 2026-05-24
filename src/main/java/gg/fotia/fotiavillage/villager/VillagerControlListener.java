@@ -26,6 +26,9 @@ public final class VillagerControlListener implements Listener {
         if (event.getEntityType() != EntityType.VILLAGER) {
             return;
         }
+        if (!plugin.isWorldAllowed(event.getLocation())) {
+            return;
+        }
         FotiaSettings settings = plugin.settings();
         boolean spawnControlEnabled = settings.spawnControl().enabled();
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
@@ -72,6 +75,9 @@ public final class VillagerControlListener implements Listener {
         if (event.getEntity().getType() != EntityType.ZOMBIE_VILLAGER || event.getTransformedEntity().getType() != EntityType.VILLAGER) {
             return;
         }
+        if (!plugin.isWorldAllowed(event.getEntity().getLocation())) {
+            return;
+        }
         FotiaSettings settings = plugin.settings();
         if (settings.spawnControl().enabled() && !settings.spawnControl().allowCure()) {
             event.setCancelled(true);
@@ -86,6 +92,9 @@ public final class VillagerControlListener implements Listener {
         if (settings.lifespan().enabled()) {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (event.getTransformedEntity() instanceof Villager villager && villager.isValid() && !villager.isDead()) {
+                    if (!plugin.isWorldAllowed(villager.getWorld())) {
+                        return;
+                    }
                     if (plugin.lifespan().setLifespan(villager, settings.lifespan().days())) {
                         notifyLifespanSet(villager, settings.lifespan().days());
                     }
@@ -120,6 +129,9 @@ public final class VillagerControlListener implements Listener {
         }
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (event.getEntity() instanceof Villager villager && villager.isValid() && !villager.isDead()) {
+                if (!plugin.isWorldAllowed(villager.getWorld())) {
+                    return;
+                }
                 if (plugin.lifespan().setLifespan(villager, lifespan.days())) {
                     notifyLifespanSet(villager, lifespan.days());
                 }

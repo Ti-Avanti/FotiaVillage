@@ -83,6 +83,10 @@ public final class LifespanService implements Listener {
     }
 
     public boolean setLifespan(Villager villager, int days) {
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            cleanupDisplay(villager);
+            return false;
+        }
         if (isExcluded(villager)) {
             clearLifespanData(villager);
             return false;
@@ -94,6 +98,10 @@ public final class LifespanService implements Listener {
     }
 
     public long addLifespan(Villager villager, int days) {
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            cleanupDisplay(villager);
+            return -1L;
+        }
         if (isExcluded(villager)) {
             clearLifespanData(villager);
             return -1L;
@@ -108,6 +116,9 @@ public final class LifespanService implements Listener {
     }
 
     public boolean hasLifespan(Villager villager) {
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            return false;
+        }
         if (isExcluded(villager)) {
             return false;
         }
@@ -128,6 +139,10 @@ public final class LifespanService implements Listener {
         int total = 0;
         int without = 0;
         for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                cleanupWorldDisplays(world);
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 if (isExcluded(villager)) {
                     clearLifespanData(villager);
@@ -145,6 +160,10 @@ public final class LifespanService implements Listener {
     public int addMissingLifespan(int days) {
         int count = 0;
         for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                cleanupWorldDisplays(world);
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 if (isExcluded(villager)) {
                     clearLifespanData(villager);
@@ -162,6 +181,10 @@ public final class LifespanService implements Listener {
     public ArrayList<String> missingVillagerLines() {
         ArrayList<String> lines = new ArrayList<>();
         for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                cleanupWorldDisplays(world);
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 if (isExcluded(villager)) {
                     clearLifespanData(villager);
@@ -190,6 +213,10 @@ public final class LifespanService implements Listener {
         }
         boolean removedAny = false;
         for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                cleanupWorldDisplays(world);
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 if (isExcluded(villager)) {
                     clearLifespanData(villager);
@@ -211,6 +238,10 @@ public final class LifespanService implements Listener {
             return;
         }
         for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                cleanupWorldDisplays(world);
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 if (isExcluded(villager)) {
                     clearLifespanData(villager);
@@ -248,6 +279,10 @@ public final class LifespanService implements Listener {
     }
 
     private void createOrUpdateDisplay(Villager villager) {
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            cleanupDisplay(villager);
+            return;
+        }
         if (isExcluded(villager)) {
             clearLifespanData(villager);
             return;
@@ -339,6 +374,9 @@ public final class LifespanService implements Listener {
         Set<UUID> current = new HashSet<>();
         double range = plugin.settings().lifespan().displayLookAtRange();
         for (Player player : plugin.getServer().getOnlinePlayers()) {
+            if (!plugin.isWorldAllowed(player.getWorld())) {
+                continue;
+            }
             RayTraceResult result = player.getWorld().rayTraceEntities(
                 player.getEyeLocation(),
                 player.getEyeLocation().getDirection(),
@@ -373,6 +411,10 @@ public final class LifespanService implements Listener {
 
     private void updateDisplayVisibility() {
         for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                cleanupWorldDisplays(world);
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 if (isExcluded(villager)) {
                     clearLifespanData(villager);
@@ -389,6 +431,12 @@ public final class LifespanService implements Listener {
                     cleanupDisplay(villager);
                 }
             }
+        }
+    }
+
+    private void cleanupWorldDisplays(org.bukkit.World world) {
+        for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+            cleanupDisplay(villager);
         }
     }
 

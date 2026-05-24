@@ -340,6 +340,9 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         }
         int count = 0;
         for (World world : Bukkit.getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                continue;
+            }
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 plugin.lifespan().cleanupDisplay(villager);
                 villager.remove();
@@ -379,6 +382,9 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
     }
 
     private Villager targetVillager(Player player, double maxDistance) {
+        if (!plugin.isWorldAllowed(player.getWorld())) {
+            return null;
+        }
         Vector eye = player.getEyeLocation().toVector();
         Vector direction = player.getEyeLocation().getDirection().normalize();
         Villager nearest = null;

@@ -11,6 +11,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class ConfigService {
     private final FotiaVillagePlugin plugin;
@@ -64,6 +66,11 @@ public final class ConfigService {
                 atLeast(config.getInt("performance.report-interval", 300), 0),
                 atLeast(config.getDouble("performance.low-tps-warning", 18.0), 0.0),
                 atLeast(config.getInt("performance.cleanup-expired-interval", 600), 0)
+            ),
+            new FotiaSettings.WorldFilter(
+                config.getBoolean("world-filter.enabled", true),
+                readWorldSet(config.getStringList("world-filter.whitelist")),
+                readWorldSet(config.getStringList("world-filter.blacklist"))
             ),
             new FotiaSettings.Compatibility(
                 config.getBoolean("compatibility.shopkeepers.exclude-lifespan", true),
@@ -175,6 +182,13 @@ public final class ConfigService {
             result.put(key.toUpperCase(Locale.ROOT), section.getInt(key));
         }
         return Map.copyOf(result);
+    }
+
+    private Set<String> readWorldSet(List<String> worlds) {
+        return worlds.stream()
+            .filter(world -> world != null && !world.isBlank())
+            .map(world -> world.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private List<FotiaSettings.PermissionGroup> readPermissionGroups(ConfigurationSection section) {

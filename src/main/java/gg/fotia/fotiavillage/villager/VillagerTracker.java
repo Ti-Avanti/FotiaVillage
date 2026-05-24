@@ -29,6 +29,9 @@ public final class VillagerTracker implements Listener {
     public void initialize() {
         counts.clear();
         plugin.getServer().getWorlds().forEach(world -> {
+            if (!plugin.isWorldAllowed(world)) {
+                return;
+            }
             for (Chunk chunk : world.getLoadedChunks()) {
                 scan(chunk);
             }
@@ -36,6 +39,9 @@ public final class VillagerTracker implements Listener {
     }
 
     public int countInRadius(Chunk center, int radius) {
+        if (!plugin.isWorldAllowed(center.getWorld())) {
+            return 0;
+        }
         int total = 0;
         for (int x = center.getX() - radius; x <= center.getX() + radius; x++) {
             for (int z = center.getZ() - radius; z <= center.getZ() + radius; z++) {
@@ -51,6 +57,9 @@ public final class VillagerTracker implements Listener {
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
+        if (!plugin.isWorldAllowed(event.getWorld())) {
+            return;
+        }
         scan(event.getChunk());
     }
 
@@ -61,7 +70,7 @@ public final class VillagerTracker implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSpawn(CreatureSpawnEvent event) {
-        if (event.getEntityType() == EntityType.VILLAGER && event.getSpawnReason() != CreatureSpawnEvent.SpawnReason.CURED) {
+        if (event.getEntityType() == EntityType.VILLAGER && event.getSpawnReason() != CreatureSpawnEvent.SpawnReason.CURED && plugin.isWorldAllowed(event.getLocation())) {
             increment(event.getEntity().getChunk());
         }
     }
@@ -69,10 +78,12 @@ public final class VillagerTracker implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTransform(EntityTransformEvent event) {
         if (event.getEntity() instanceof Villager && !(event.getTransformedEntity() instanceof Villager)) {
-            decrement(event.getEntity().getChunk());
+            if (plugin.isWorldAllowed(event.getEntity().getWorld())) {
+                decrement(event.getEntity().getChunk());
+            }
             return;
         }
-        if (!(event.getEntity() instanceof Villager) && event.getTransformedEntity() instanceof Villager) {
+        if (!(event.getEntity() instanceof Villager) && event.getTransformedEntity() instanceof Villager && plugin.isWorldAllowed(event.getTransformedEntity().getWorld())) {
             increment(event.getTransformedEntity().getChunk());
         }
     }
@@ -87,18 +98,26 @@ public final class VillagerTracker implements Listener {
         if (from.getWorld().equals(to.getWorld()) && from.getX() == to.getX() && from.getZ() == to.getZ()) {
             return;
         }
-        decrement(from);
-        increment(to);
+        if (plugin.isWorldAllowed(from.getWorld())) {
+            decrement(from);
+        }
+        if (plugin.isWorldAllowed(to.getWorld())) {
+            increment(to);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
-        if (event.getEntity() instanceof Villager) {
+        if (event.getEntity() instanceof Villager && plugin.isWorldAllowed(event.getEntity().getWorld())) {
             decrement(event.getEntity().getChunk());
         }
     }
 
     private void scan(Chunk chunk) {
+        if (!plugin.isWorldAllowed(chunk.getWorld())) {
+            counts.remove(new ChunkKey(chunk));
+            return;
+        }
         int count = 0;
         for (Entity entity : chunk.getEntities()) {
             if (entity instanceof Villager) {

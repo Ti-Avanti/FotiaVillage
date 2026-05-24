@@ -23,6 +23,8 @@ import gg.fotia.fotiavillage.update.UpdateCheckService;
 import gg.fotia.fotiavillage.villager.VillagerControlListener;
 import gg.fotia.fotiavillage.villager.VillagerTracker;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class FotiaVillagePlugin extends JavaPlugin {
@@ -143,6 +145,14 @@ public final class FotiaVillagePlugin extends JavaPlugin {
 
     public GuiService gui() {
         return guiService;
+    }
+
+    public boolean isWorldAllowed(World world) {
+        return world != null && settings().worldFilter().isAllowed(world.getName());
+    }
+
+    public boolean isWorldAllowed(Location location) {
+        return location != null && isWorldAllowed(location.getWorld());
     }
 
     private void registerEvents() {

@@ -1,7 +1,9 @@
 package gg.fotia.fotiavillage.config;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public record FotiaSettings(
     String language,
@@ -10,6 +12,7 @@ public record FotiaSettings(
     Placeholder placeholder,
     UpdateChecker updateChecker,
     Performance performance,
+    WorldFilter worldFilter,
     Compatibility compatibility,
     VillagerLimit villagerLimit,
     SpawnControl spawnControl,
@@ -21,6 +24,18 @@ public record FotiaSettings(
     public record Placeholder(boolean enabled) {}
     public record UpdateChecker(boolean enabled) {}
     public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval) {}
+    public record WorldFilter(boolean enabled, Set<String> whitelist, Set<String> blacklist) {
+        public boolean isAllowed(String worldName) {
+            if (!enabled || worldName == null || worldName.isBlank()) {
+                return true;
+            }
+            String normalized = worldName.toLowerCase(Locale.ROOT);
+            if (blacklist.contains(normalized)) {
+                return false;
+            }
+            return whitelist.isEmpty() || whitelist.contains(normalized);
+        }
+    }
     public record Compatibility(boolean excludeShopkeepersFromLifespan, boolean excludeCitizensFromLifespan, boolean excludeGenericNpcMetadataFromLifespan, String genericNpcMetadataKey) {}
     public record VillagerLimit(boolean enabled, int chunkRadius, int maxVillagers) {}
     public record SpawnControl(boolean enabled, boolean blockNaturalSpawn, boolean allowCure, boolean allowSpawnEgg, boolean allowBreeding) {}

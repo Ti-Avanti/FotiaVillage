@@ -29,6 +29,9 @@ public final class LifespanItemListener implements Listener {
         if (!(event.getRightClicked() instanceof Villager villager)) {
             return;
         }
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            return;
+        }
 
         Player player = event.getPlayer();
         if (plugin.lifespanItems().requireSneaking() && !player.isSneaking()) {

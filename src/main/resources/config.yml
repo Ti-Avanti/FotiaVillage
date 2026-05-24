@@ -32,6 +32,15 @@ performance:
   # 清理过期数据库记录的间隔（秒）
   cleanup-expired-interval: 600
 
+# 世界过滤设置
+world-filter:
+  # 是否启用世界白名单/黑名单过滤
+  enabled: true
+  # 白名单：留空表示所有世界都允许；填写后仅这些世界启用插件功能
+  whitelist: []
+  # 黑名单：这些世界禁用插件功能；黑名单优先级高于白名单
+  blacklist: []
+
 # 兼容设置
 compatibility:
   shopkeepers:

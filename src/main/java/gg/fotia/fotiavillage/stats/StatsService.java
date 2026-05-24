@@ -15,6 +15,9 @@ public final class StatsService {
     }
 
     public void record(Player player, String itemType, int expSpent) {
+        if (!plugin.isWorldAllowed(player.getWorld())) {
+            return;
+        }
         if (!plugin.settings().tradeControl().statistics().enabled()) {
             return;
         }
