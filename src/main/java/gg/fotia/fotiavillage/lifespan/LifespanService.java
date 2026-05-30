@@ -310,15 +310,24 @@ public final class LifespanService implements Listener {
     private boolean spawnZombieVillager(Villager villager) {
         try {
             ZombieVillager zombie = (ZombieVillager) villager.getWorld().spawnEntity(villager.getLocation(), EntityType.ZOMBIE_VILLAGER);
-            zombie.setVillagerProfession(villager.getProfession());
-            zombie.setVillagerType(villager.getVillagerType());
-            zombie.setBaby(!villager.isAdult());
-            zombie.customName(villager.customName());
-            zombie.setCustomNameVisible(villager.isCustomNameVisible());
+            copyZombieVillagerIdentity(villager, zombie);
             return true;
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Failed to spawn zombie villager for expired villager: " + ex.getMessage());
             return false;
+        }
+    }
+
+    private void copyZombieVillagerIdentity(Villager villager, ZombieVillager zombie) {
+        zombie.setVillagerProfession(villager.getProfession());
+        zombie.setVillagerType(villager.getVillagerType());
+        zombie.setBaby(!villager.isAdult());
+        zombie.customName(villager.customName());
+        zombie.setCustomNameVisible(villager.isCustomNameVisible());
+        zombie.setPersistent(true);
+        zombie.setRemoveWhenFarAway(false);
+        for (String tag : villager.getScoreboardTags()) {
+            zombie.addScoreboardTag(tag);
         }
     }
 
