@@ -224,6 +224,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
                 plugin.language().prefixed(sender, "lifespan.add-success", Map.of("count", count, "days", days));
             }
             case "addtarget" -> addTargetLifespan(sender, args);
+            case "remove" -> removeTargetLifespan(sender, args);
             case "list" -> {
                 List<String> lines = plugin.lifespan().missingVillagerLines();
                 if (lines.isEmpty()) {
@@ -272,6 +273,48 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             "time", plugin.language().formatDuration(remaining),
             "id", villager.getUniqueId().toString()
         ));
+    }
+
+    private void removeTargetLifespan(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            plugin.language().prefixed(sender, "player-only");
+            return;
+        }
+        if (!plugin.settings().lifespan().enabled()) {
+            plugin.language().prefixed(sender, "lifespan.disabled");
+            return;
+        }
+        if (args.length < 3) {
+            plugin.language().prefixed(sender, "lifespan.remove-usage");
+            return;
+        }
+        Integer days = parsePositiveInt(args[2]);
+        if (days == null) {
+            plugin.language().prefixed(sender, "lifespan.invalid-days");
+            return;
+        }
+        Villager villager = targetVillager(player, plugin.settings().lifespan().commandTargetRange());
+        if (villager == null) {
+            plugin.language().prefixed(sender, "lifespan.target-not-found");
+            return;
+        }
+        String villagerId = villager.getUniqueId().toString();
+        LifespanService.LifespanRemoveResult result = plugin.lifespan().removeLifespan(villager, days);
+        switch (result.status()) {
+            case EXCLUDED -> plugin.language().prefixed(sender, "lifespan.target-excluded");
+            case NO_LIFESPAN -> plugin.language().prefixed(sender, "lifespan.target-no-lifespan");
+            case SUCCESS -> {
+                if (result.expired()) {
+                    plugin.language().prefixed(sender, "lifespan.target-remove-expired", Map.of("days", days, "id", villagerId));
+                } else {
+                    plugin.language().prefixed(sender, "lifespan.target-remove-success", Map.of(
+                        "days", days,
+                        "time", plugin.language().formatDuration(result.remaining()),
+                        "id", villagerId
+                    ));
+                }
+            }
+        }
     }
 
     private void item(CommandSender sender, String[] args) {
@@ -415,7 +458,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             return switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "admin" -> filter(args[1], "reset", "clear", "info");
                 case "perf" -> filter(args[1], "overview", "memory", "database", "tracker", "cleanup");
-                case "lifespan" -> filter(args[1], "check", "add", "addtarget", "list");
+                case "lifespan" -> filter(args[1], "check", "add", "addtarget", "remove", "list");
                 case "item" -> filter(args[1], "give");
                 case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
                 default -> List.of();
@@ -425,7 +468,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
             return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[2].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("admin") && args[1].equalsIgnoreCase("clear")) return filter(args[2], "confirm");
-        if (args.length == 3 && args[0].equalsIgnoreCase("lifespan") && (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("addtarget"))) return filter(args[2], "1", "3", "7", "14", "30");
+        if (args.length == 3 && args[0].equalsIgnoreCase("lifespan") && (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("addtarget") || args[1].equalsIgnoreCase("remove"))) return filter(args[2], "1", "3", "7", "14", "30");
         if (args.length == 3 && args[0].equalsIgnoreCase("item") && args[1].equalsIgnoreCase("give")) {
             return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[2].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
         }

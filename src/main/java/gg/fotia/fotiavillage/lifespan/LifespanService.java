@@ -115,6 +115,36 @@ public final class LifespanService implements Listener {
         return Math.max(0L, end - now);
     }
 
+    public LifespanRemoveResult removeLifespan(Villager villager, int days) {
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            cleanupDisplay(villager);
+            return new LifespanRemoveResult(LifespanRemoveStatus.EXCLUDED, 0L, false);
+        }
+        if (isExcluded(villager)) {
+            clearLifespanData(villager);
+            return new LifespanRemoveResult(LifespanRemoveStatus.EXCLUDED, 0L, false);
+        }
+        Long currentEnd = villager.getPersistentDataContainer().get(lifespanEndKey, PersistentDataType.LONG);
+        if (currentEnd == null) {
+            return new LifespanRemoveResult(LifespanRemoveStatus.NO_LIFESPAN, 0L, false);
+        }
+
+        long now = System.currentTimeMillis();
+        long currentRemaining = Math.max(0L, currentEnd - now);
+        long remaining = Math.max(0L, currentRemaining - daysToMillis(days));
+        if (remaining <= 0L) {
+            villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, now);
+            expireVillager(villager);
+            plugin.villagerTracker().initialize();
+            return new LifespanRemoveResult(LifespanRemoveStatus.SUCCESS, 0L, true);
+        }
+
+        long end = safeAdd(now, remaining);
+        villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
+        refreshDisplay(villager);
+        return new LifespanRemoveResult(LifespanRemoveStatus.SUCCESS, remaining, false);
+    }
+
     public boolean hasLifespan(Villager villager) {
         if (!plugin.isWorldAllowed(villager.getWorld())) {
             return false;
@@ -525,4 +555,12 @@ public final class LifespanService implements Listener {
     }
 
     public record LifespanScan(int total, int withLifespan, int withoutLifespan) {}
+
+    public enum LifespanRemoveStatus {
+        SUCCESS,
+        EXCLUDED,
+        NO_LIFESPAN
+    }
+
+    public record LifespanRemoveResult(LifespanRemoveStatus status, long remaining, boolean expired) {}
 }
