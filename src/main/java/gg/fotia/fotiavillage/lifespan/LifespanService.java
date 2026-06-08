@@ -10,20 +10,30 @@ import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayText;
 import gg.fotia.fotiavillage.lifespan.display.LifespanTagFormatter;
 import gg.fotia.fotiavillage.lifespan.display.TextDisplayLifespanDisplayRenderer;
 import org.bukkit.NamespacedKey;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.ZombieVillager;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.util.RayTraceResult;
-import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.RayTraceResult;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +45,9 @@ public final class LifespanService implements Listener {
     private final NamespacedKey lifespanEndKey;
     private final NamespacedKey displayIdKey;
     private final NamespacedKey displayOwnerKey;
+    private final NamespacedKey zombieTradeSnapshotKey;
+    private final NamespacedKey tradeGuiMarkerKey;
+    private final NamespacedKey tradeGuiLoreSizeKey;
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
     private final Set<UUID> targetedVillagers = new HashSet<>();
     private final Set<UUID> visibleVillagers = new HashSet<>();
@@ -46,6 +59,9 @@ public final class LifespanService implements Listener {
         this.lifespanEndKey = new NamespacedKey(plugin, "lifespan_end");
         this.displayIdKey = new NamespacedKey(plugin, "lifespan_display");
         this.displayOwnerKey = new NamespacedKey(plugin, "lifespan_display_owner");
+        this.zombieTradeSnapshotKey = new NamespacedKey(plugin, "zombie_trade_snapshot");
+        this.tradeGuiMarkerKey = new NamespacedKey(plugin, "trade_gui_display");
+        this.tradeGuiLoreSizeKey = new NamespacedKey(plugin, "trade_gui_lore_size");
         this.tagFormatter = LifespanDisplayText::plain;
         this.displayRenderer = new ArmorStandLifespanDisplayRenderer(plugin, displayIdKey, displayOwnerKey, 0.65D);
     }
@@ -237,6 +253,25 @@ public final class LifespanService implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onZombieVillagerCure(EntityTransformEvent event) {
+        if (!(event.getEntity() instanceof ZombieVillager zombie) || !(event.getTransformedEntity() instanceof Villager villager)) {
+            return;
+        }
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            return;
+        }
+        TradeSnapshot snapshot = readTradeSnapshot(zombie);
+        if (snapshot == null) {
+            return;
+        }
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (villager.isValid() && !villager.isDead()) {
+                applyTradeSnapshot(villager, snapshot);
+            }
+        });
+    }
+
     private void checkExpirations() {
         if (!plugin.settings().lifespan().enabled()) {
             return;
@@ -339,8 +374,10 @@ public final class LifespanService implements Listener {
 
     private boolean spawnZombieVillager(Villager villager) {
         try {
+            TradeSnapshot tradeSnapshot = createTradeSnapshot(villager);
             ZombieVillager zombie = (ZombieVillager) villager.getWorld().spawnEntity(villager.getLocation(), EntityType.ZOMBIE_VILLAGER);
             copyZombieVillagerIdentity(villager, zombie);
+            writeTradeSnapshot(zombie, tradeSnapshot);
             return true;
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Failed to spawn zombie villager for expired villager: " + ex.getMessage());
@@ -358,6 +395,181 @@ public final class LifespanService implements Listener {
         zombie.setRemoveWhenFarAway(false);
         for (String tag : villager.getScoreboardTags()) {
             zombie.addScoreboardTag(tag);
+        }
+    }
+
+    private TradeSnapshot createTradeSnapshot(Villager villager) {
+        ensureTradeRecipes(villager);
+        return new TradeSnapshot(
+            villager.getVillagerLevel(),
+            villager.getVillagerExperience(),
+            restocksToday(villager),
+            cleanCopyRecipes(villager.getRecipes())
+        );
+    }
+
+    private void ensureTradeRecipes(Villager villager) {
+        if (villager.getRecipeCount() > 0 || !canHaveTradeRecipes(villager)) {
+            return;
+        }
+        int targetRecipes = Math.max(2, Math.min(10, villager.getVillagerLevel() * 2));
+        try {
+            villager.addTrades(targetRecipes);
+        } catch (NoSuchMethodError ignored) {
+            // Paper 1.18 does not expose addTrades; preserve already-generated recipes only.
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Failed to generate villager trades before zombification: " + ex.getMessage());
+        }
+    }
+
+    private int restocksToday(Villager villager) {
+        try {
+            return villager.getRestocksToday();
+        } catch (NoSuchMethodError ignored) {
+            return 0;
+        }
+    }
+
+    private boolean canHaveTradeRecipes(Villager villager) {
+        Villager.Profession profession = villager.getProfession();
+        return profession != Villager.Profession.NONE && profession != Villager.Profession.NITWIT;
+    }
+
+    private List<MerchantRecipe> cleanCopyRecipes(List<MerchantRecipe> recipes) {
+        List<MerchantRecipe> copies = new ArrayList<>();
+        for (MerchantRecipe recipe : recipes) {
+            copies.add(copyRecipe(recipe, stripTradeGuiInfo(recipe.getResult().clone())));
+        }
+        return copies;
+    }
+
+    private MerchantRecipe copyRecipe(MerchantRecipe recipe, ItemStack result) {
+        MerchantRecipe copy = new MerchantRecipe(result, recipe.getUses(), recipe.getMaxUses(), recipe.hasExperienceReward(), recipe.getVillagerExperience(), recipe.getPriceMultiplier(), recipe.getDemand(), recipe.getSpecialPrice());
+        copy.setIngredients(recipe.getIngredients().stream().map(ItemStack::clone).toList());
+        return copy;
+    }
+
+    private ItemStack stripTradeGuiInfo(ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return item;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return item;
+        }
+        PersistentDataContainer container = meta.getPersistentDataContainer();
+        if (!container.has(tradeGuiMarkerKey, PersistentDataType.BYTE)) {
+            return item;
+        }
+        Integer originalLoreSize = container.get(tradeGuiLoreSizeKey, PersistentDataType.INTEGER);
+        List<String> lore = meta.getLore();
+        if (originalLoreSize == null || originalLoreSize <= 0 || lore == null) {
+            meta.setLore(null);
+        } else if (originalLoreSize < lore.size()) {
+            meta.setLore(new ArrayList<>(lore.subList(0, originalLoreSize)));
+        }
+        container.remove(tradeGuiMarkerKey);
+        container.remove(tradeGuiLoreSizeKey);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void writeTradeSnapshot(ZombieVillager zombie, TradeSnapshot snapshot) {
+        YamlConfiguration config = new YamlConfiguration();
+        config.set("level", snapshot.level());
+        config.set("experience", snapshot.experience());
+        config.set("restocks-today", snapshot.restocksToday());
+        config.set("recipe-count", snapshot.recipes().size());
+        for (int i = 0; i < snapshot.recipes().size(); i++) {
+            writeRecipe(config.createSection("recipes." + i), snapshot.recipes().get(i));
+        }
+        zombie.getPersistentDataContainer().set(zombieTradeSnapshotKey, PersistentDataType.STRING, config.saveToString());
+    }
+
+    private void writeRecipe(ConfigurationSection section, MerchantRecipe recipe) {
+        section.set("result", recipe.getResult().clone());
+        section.set("uses", recipe.getUses());
+        section.set("max-uses", recipe.getMaxUses());
+        section.set("experience-reward", recipe.hasExperienceReward());
+        section.set("villager-experience", recipe.getVillagerExperience());
+        section.set("price-multiplier", recipe.getPriceMultiplier());
+        section.set("demand", recipe.getDemand());
+        section.set("special-price", recipe.getSpecialPrice());
+        section.set("ingredients", recipe.getIngredients().stream().map(ItemStack::clone).toList());
+    }
+
+    private TradeSnapshot readTradeSnapshot(ZombieVillager zombie) {
+        String raw = zombie.getPersistentDataContainer().get(zombieTradeSnapshotKey, PersistentDataType.STRING);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        YamlConfiguration config = new YamlConfiguration();
+        try {
+            config.loadFromString(raw);
+        } catch (InvalidConfigurationException ex) {
+            plugin.getLogger().warning("Failed to read zombie villager trade snapshot: " + ex.getMessage());
+            return null;
+        }
+
+        int recipeCount = Math.max(0, config.getInt("recipe-count", 0));
+        List<MerchantRecipe> recipes = new ArrayList<>();
+        for (int i = 0; i < recipeCount; i++) {
+            ConfigurationSection section = config.getConfigurationSection("recipes." + i);
+            if (section == null) {
+                continue;
+            }
+            MerchantRecipe recipe = readRecipe(section);
+            if (recipe != null) {
+                recipes.add(recipe);
+            }
+        }
+        return new TradeSnapshot(
+            Math.max(1, Math.min(5, config.getInt("level", 1))),
+            Math.max(0, config.getInt("experience", 0)),
+            Math.max(0, config.getInt("restocks-today", 0)),
+            recipes
+        );
+    }
+
+    private MerchantRecipe readRecipe(ConfigurationSection section) {
+        ItemStack result = section.getItemStack("result");
+        if (result == null || result.getType().isAir()) {
+            return null;
+        }
+        MerchantRecipe recipe = new MerchantRecipe(
+            result.clone(),
+            Math.max(0, section.getInt("uses", 0)),
+            Math.max(1, section.getInt("max-uses", 999999)),
+            section.getBoolean("experience-reward", true),
+            Math.max(0, section.getInt("villager-experience", 0)),
+            (float) section.getDouble("price-multiplier", 0.0D),
+            section.getInt("demand", 0),
+            section.getInt("special-price", 0)
+        );
+        recipe.setIngredients(readIngredients(section));
+        return recipe;
+    }
+
+    private List<ItemStack> readIngredients(ConfigurationSection section) {
+        List<ItemStack> ingredients = new ArrayList<>();
+        for (Object value : section.getList("ingredients", List.of())) {
+            if (value instanceof ItemStack item) {
+                ingredients.add(item.clone());
+            }
+        }
+        return ingredients;
+    }
+
+    private void applyTradeSnapshot(Villager villager, TradeSnapshot snapshot) {
+        villager.setVillagerLevel(snapshot.level());
+        villager.setVillagerExperience(snapshot.experience());
+        try {
+            villager.setRestocksToday(snapshot.restocksToday());
+        } catch (NoSuchMethodError ignored) {
+            // Paper 1.18 does not expose restock counters.
+        }
+        if (!snapshot.recipes().isEmpty()) {
+            villager.setRecipes(cleanCopyRecipes(snapshot.recipes()));
         }
     }
 
@@ -563,4 +775,6 @@ public final class LifespanService implements Listener {
     }
 
     public record LifespanRemoveResult(LifespanRemoveStatus status, long remaining, boolean expired) {}
+
+    private record TradeSnapshot(int level, int experience, int restocksToday, List<MerchantRecipe> recipes) {}
 }
