@@ -430,7 +430,6 @@ public final class TradeService implements Listener {
     private boolean commitTrade(Player player, MerchantRecipe recipe, String profession, TradeDecision decision, Runnable rollback) {
         if (!economy.reserveExtraEmeralds(player, recipe, decision.extraEmeralds())) {
             rollback.run();
-            plugin.language().prefixed(player, "trade.insufficient-emerald", Map.of("required", decision.extraEmeralds()));
             return false;
         }
 
@@ -497,7 +496,7 @@ public final class TradeService implements Listener {
     }
 
     private void sendDecisionMessage(Player player, TradeDecision decision) {
-        if (decision.messageKey() != null) {
+        if (decision.messageKey() != null && !decision.guiOnly()) {
             plugin.language().prefixed(player, decision.messageKey(), decision.replacements());
         }
     }
@@ -660,7 +659,16 @@ public final class TradeService implements Listener {
         if (display.showExtraEmeralds() && trade.economyBalance().enabled()) {
             int extraEmeralds = economy.requiredExtraEmeralds(result);
             if (extraEmeralds > 0) {
+                EconomyBalanceService.ExtraEmeraldStatus status = economy.extraEmeraldStatus(player, recipe, extraEmeralds);
                 lines.add(plugin.language().legacy("trade-gui.extra-emeralds", Map.of("amount", extraEmeralds)));
+                if (status.missing() > 0) {
+                    lines.add(plugin.language().legacy("trade-gui.extra-emeralds-missing", Map.of(
+                        "available", status.available(),
+                        "missing", status.missing()
+                    )));
+                } else {
+                    lines.add(plugin.language().legacy("trade-gui.extra-emeralds-available", Map.of("available", status.available())));
+                }
             }
         }
         if (lines.isEmpty()) {
@@ -761,9 +769,9 @@ public final class TradeService implements Listener {
         return "CUSTOM";
     }
 
-    private record TradeDecision(boolean allowed, String messageKey, Map<String, ?> replacements, int expCost, int extraEmeralds) {
+    private record TradeDecision(boolean allowed, String messageKey, Map<String, ?> replacements, int expCost, int extraEmeralds, boolean guiOnly) {
         static TradeDecision allow(int expCost, int extraEmeralds) {
-            return new TradeDecision(true, null, Map.of(), expCost, extraEmeralds);
+            return new TradeDecision(true, null, Map.of(), expCost, extraEmeralds, false);
         }
 
         static TradeDecision block(String messageKey) {
@@ -771,7 +779,7 @@ public final class TradeService implements Listener {
         }
 
         static TradeDecision block(String messageKey, Map<String, ?> replacements) {
-            return new TradeDecision(false, messageKey, replacements, 0, 0);
+            return new TradeDecision(false, messageKey, replacements, 0, 0, "trade.insufficient-emerald".equals(messageKey));
         }
     }
 

@@ -104,6 +104,8 @@ trade-gui:
   limit-profession: "<!i><gray>职业次数：</gray><yellow>{used}/{limit}</yellow>"
   limit-item: "<!i><gray>物品次数：</gray><yellow>{used}/{limit}</yellow>"
   extra-emeralds: "<!i><gray>额外绿宝石：</gray><yellow>{amount}</yellow>"
+  extra-emeralds-available: "<!i><gray>当前可用：</gray><green>{available}</green>"
+  extra-emeralds-missing: "<!i><red>绿宝石不足：</red><gray>当前可用 </gray><yellow>{available}</yellow><gray>，还差 </gray><red>{missing}</red>"
 
 stats:
   no-data: "<!i><yellow>玩家 <gold>{player}</gold> 暂无交易记录。</yellow>"

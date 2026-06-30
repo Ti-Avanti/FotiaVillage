@@ -104,6 +104,8 @@ trade-gui:
   limit-profession: "<!i><gray>Profession trades:</gray> <yellow>{used}/{limit}</yellow>"
   limit-item: "<!i><gray>Item trades:</gray> <yellow>{used}/{limit}</yellow>"
   extra-emeralds: "<!i><gray>Extra emeralds:</gray> <yellow>{amount}</yellow>"
+  extra-emeralds-available: "<!i><gray>Currently available:</gray> <green>{available}</green>"
+  extra-emeralds-missing: "<!i><red>Not enough emeralds:</red> <gray>available </gray><yellow>{available}</yellow><gray>, missing </gray><red>{missing}</red>"
 
 stats:
   no-data: "<!i><yellow>Player <gold>{player}</gold> has no trade records.</yellow>"

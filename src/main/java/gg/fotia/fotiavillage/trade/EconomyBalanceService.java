@@ -11,6 +11,7 @@ import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.PlayerInventory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,7 +39,7 @@ public final class EconomyBalanceService {
         if (extraEmeralds <= 0) {
             return true;
         }
-        return availableExtraEmeralds(player, recipe) >= extraEmeralds + reservedExtraEmeralds.getOrDefault(player.getUniqueId(), 0);
+        return extraEmeraldStatus(player, recipe, extraEmeralds).missing() <= 0;
     }
 
     public boolean reserveExtraEmeralds(Player player, MerchantRecipe recipe, int extraEmeralds) {
@@ -50,6 +51,12 @@ public final class EconomyBalanceService {
         }
         reservedExtraEmeralds.merge(player.getUniqueId(), extraEmeralds, Integer::sum);
         return true;
+    }
+
+    public ExtraEmeraldStatus extraEmeraldStatus(Player player, MerchantRecipe recipe, int extraEmeralds) {
+        int available = Math.max(0, availableExtraEmeralds(player, recipe) - reservedExtraEmeralds.getOrDefault(player.getUniqueId(), 0));
+        int missing = Math.max(0, extraEmeralds - available);
+        return new ExtraEmeraldStatus(extraEmeralds, available, missing);
     }
 
     public void consumeReservedExtraEmeralds(Player player, int amount) {
@@ -111,11 +118,43 @@ public final class EconomyBalanceService {
     }
 
     private int availableExtraEmeralds(Player player, MerchantRecipe recipe) {
-        int vanillaEmeralds = recipe.getIngredients().stream()
-            .filter(item -> item != null && item.getType() == Material.EMERALD)
-            .mapToInt(ItemStack::getAmount)
-            .sum();
+        int vanillaEmeralds = vanillaEmeralds(player, recipe);
         return countEmeralds(player) + countMerchantInputEmeralds(player) - vanillaEmeralds;
+    }
+
+    private int vanillaEmeralds(Player player, MerchantRecipe recipe) {
+        List<ItemStack> ingredients = recipe.getIngredients();
+        if (ingredients.isEmpty()) {
+            return 0;
+        }
+        int count = countEmeralds(adjustedFirstIngredient(player, recipe, ingredients.get(0)));
+        for (int i = 1; i < ingredients.size(); i++) {
+            count += countEmeralds(ingredients.get(i));
+        }
+        return count;
+    }
+
+    private ItemStack adjustedFirstIngredient(Player player, MerchantRecipe recipe, ItemStack fallback) {
+        if (player.getOpenInventory().getTopInventory() instanceof MerchantInventory inventory) {
+            MerchantRecipe selected = inventory.getSelectedRecipe();
+            if (selected == recipe) {
+                ItemStack adjusted = adjustedFirstIngredient(recipe);
+                if (adjusted != null && !adjusted.getType().isAir()) {
+                    return adjusted;
+                }
+            }
+        }
+        ItemStack adjusted = adjustedFirstIngredient(recipe);
+        return adjusted != null && !adjusted.getType().isAir() ? adjusted : fallback;
+    }
+
+    private ItemStack adjustedFirstIngredient(MerchantRecipe recipe) {
+        try {
+            return recipe.getAdjustedIngredient1();
+        } catch (NoSuchMethodError ignored) {
+            // Paper 1.18 fallback: use the recipe ingredient amount.
+            return null;
+        }
     }
 
     private int countEmeralds(Player player) {
@@ -141,4 +180,6 @@ public final class EconomyBalanceService {
         }
         return item.getAmount();
     }
+
+    public record ExtraEmeraldStatus(int required, int available, int missing) {}
 }
