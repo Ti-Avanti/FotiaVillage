@@ -108,7 +108,10 @@ public final class ConfigService {
                 config.getBoolean("villager-lifespan.zombify-on-expire", false),
                 config.getBoolean("villager-lifespan.auto-add-lifespan.enabled", true),
                 atLeast(config.getInt("villager-lifespan.auto-add-lifespan.check-interval", 300), 0),
-                config.getBoolean("villager-lifespan.auto-add-lifespan.check-on-startup", true)
+                config.getBoolean("villager-lifespan.auto-add-lifespan.check-on-startup", true),
+                config.getBoolean("villager-lifespan.chunk-load-refresh.enabled", true),
+                config.getBoolean("villager-lifespan.chunk-load-refresh.auto-add-missing", true),
+                atLeast(config.getInt("villager-lifespan.chunk-load-refresh.max-villagers-per-tick", 20), 1)
             ),
             readTradeControl(config),
             new FotiaSettings.Commands(config.getBoolean("commands.kill-enabled", true))

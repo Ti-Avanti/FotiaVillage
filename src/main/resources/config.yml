@@ -129,6 +129,14 @@ villager-lifespan:
     check-interval: 300
     # 启动后是否执行一次检查
     check-on-startup: true
+  # 区块加载时的寿命显示刷新
+  chunk-load-refresh:
+    # 玩家进入未加载区块后，是否自动刷新该区块村民的寿命显示
+    enabled: true
+    # 区块加载时遇到没有寿命数据的普通村民，是否按 days 补全寿命；仍会受 auto-add-lifespan.enabled 控制
+    auto-add-missing: true
+    # 每 tick 最多处理多少个因区块加载入队的村民，降低大量村民同时加载时的卡顿峰值
+    max-villagers-per-tick: 20
 
 # 交易控制
 trade-control:

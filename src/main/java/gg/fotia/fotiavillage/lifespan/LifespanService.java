@@ -33,6 +33,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.RayTraceResult;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +51,9 @@ public final class LifespanService implements Listener {
     private final NamespacedKey zombieTradeSnapshotKey;
     private final NamespacedKey tradeGuiMarkerKey;
     private final NamespacedKey tradeGuiLoreSizeKey;
+    private final ArrayDeque<UUID> chunkLoadRefreshQueue = new ArrayDeque<>();
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
+    private final Set<UUID> queuedChunkLoadRefreshVillagers = new HashSet<>();
     private final Set<UUID> targetedVillagers = new HashSet<>();
     private final Set<UUID> visibleVillagers = new HashSet<>();
     private LifespanTagFormatter tagFormatter;
@@ -80,6 +83,9 @@ public final class LifespanService implements Listener {
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateTargetedVillagers, 1L, plugin.settings().lifespan().displayVisibilityCheckIntervalTicks()));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, 20L * 5L, 20L * 5L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::cleanupOrphanDisplays, 20L * 60L * 5L, 20L * 60L * 5L));
+        if (plugin.settings().lifespan().chunkLoadRefreshEnabled()) {
+            tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::processChunkLoadRefreshQueue, 1L, 1L));
+        }
         if (plugin.settings().lifespan().autoAddEnabled() && plugin.settings().lifespan().autoAddCheckOnStartup()) {
             tasks.add(plugin.getServer().getScheduler().runTaskLater(plugin, this::autoAddMissingLifespan, 20L * 5L));
         }
@@ -96,6 +102,8 @@ public final class LifespanService implements Listener {
         if (displayRenderer != null) {
             displayRenderer.removeAll();
         }
+        chunkLoadRefreshQueue.clear();
+        queuedChunkLoadRefreshVillagers.clear();
         targetedVillagers.clear();
         visibleVillagers.clear();
     }
@@ -170,7 +178,7 @@ public final class LifespanService implements Listener {
         if (isExcluded(villager)) {
             return false;
         }
-        return villager.getPersistentDataContainer().has(lifespanEndKey, PersistentDataType.LONG);
+        return hasLifespanData(villager);
     }
 
     public long remaining(Villager villager) {
@@ -248,11 +256,11 @@ public final class LifespanService implements Listener {
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
-        if (!plugin.settings().lifespan().enabled() || !plugin.isWorldAllowed(event.getWorld())) {
+        if (!plugin.settings().lifespan().enabled() || !plugin.settings().lifespan().chunkLoadRefreshEnabled() || !plugin.isWorldAllowed(event.getWorld())) {
             return;
         }
         Chunk chunk = event.getChunk();
-        plugin.getServer().getScheduler().runTask(plugin, () -> refreshChunkVillagers(chunk));
+        plugin.getServer().getScheduler().runTask(plugin, () -> queueChunkVillagers(chunk));
     }
 
     @EventHandler
@@ -344,25 +352,63 @@ public final class LifespanService implements Listener {
         }
     }
 
-    private void refreshChunkVillagers(Chunk chunk) {
-        if (!plugin.settings().lifespan().enabled() || !chunk.isLoaded() || !plugin.isWorldAllowed(chunk.getWorld())) {
+    private void queueChunkVillagers(Chunk chunk) {
+        if (!plugin.settings().lifespan().enabled() || !plugin.settings().lifespan().chunkLoadRefreshEnabled() || !chunk.isLoaded() || !plugin.isWorldAllowed(chunk.getWorld())) {
             return;
         }
-        FotiaSettings.Lifespan lifespan = plugin.settings().lifespan();
         for (Entity entity : chunk.getEntities()) {
             if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
                 continue;
             }
-            if (isExcluded(villager)) {
-                clearLifespanData(villager);
-                continue;
-            }
-            if (hasLifespan(villager)) {
-                refreshDisplay(villager);
-            } else if (lifespan.autoAddEnabled()) {
-                setLifespan(villager, lifespan.days());
+            UUID villagerId = villager.getUniqueId();
+            if (queuedChunkLoadRefreshVillagers.add(villagerId)) {
+                chunkLoadRefreshQueue.add(villagerId);
             }
         }
+    }
+
+    private void processChunkLoadRefreshQueue() {
+        FotiaSettings.Lifespan lifespan = plugin.settings().lifespan();
+        if (!lifespan.enabled() || !lifespan.chunkLoadRefreshEnabled()) {
+            chunkLoadRefreshQueue.clear();
+            queuedChunkLoadRefreshVillagers.clear();
+            return;
+        }
+
+        int processed = 0;
+        int maxPerTick = lifespan.chunkLoadRefreshMaxVillagersPerTick();
+        while (processed < maxPerTick && !chunkLoadRefreshQueue.isEmpty()) {
+            UUID villagerId = chunkLoadRefreshQueue.poll();
+            queuedChunkLoadRefreshVillagers.remove(villagerId);
+            processed++;
+            Entity entity = plugin.getServer().getEntity(villagerId);
+            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                continue;
+            }
+            refreshChunkLoadedVillager(villager, lifespan);
+        }
+    }
+
+    private void refreshChunkLoadedVillager(Villager villager, FotiaSettings.Lifespan lifespan) {
+        if (!plugin.isWorldAllowed(villager.getWorld())) {
+            cleanupDisplay(villager);
+            return;
+        }
+        if (isExcluded(villager)) {
+            clearLifespanData(villager);
+            return;
+        }
+        if (hasLifespanData(villager)) {
+            refreshDisplay(villager);
+            return;
+        }
+        if (lifespan.chunkLoadRefreshAutoAddMissing() && lifespan.autoAddEnabled()) {
+            setLifespan(villager, lifespan.days());
+        }
+    }
+
+    private boolean hasLifespanData(Villager villager) {
+        return villager.getPersistentDataContainer().has(lifespanEndKey, PersistentDataType.LONG);
     }
 
     private boolean isExcluded(Villager villager) {
