@@ -9,6 +9,7 @@ import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayRenderer;
 import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayText;
 import gg.fotia.fotiavillage.lifespan.display.LifespanTagFormatter;
 import gg.fotia.fotiavillage.lifespan.display.TextDisplayLifespanDisplayRenderer;
+import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -22,6 +23,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTransformEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -245,6 +247,15 @@ public final class LifespanService implements Listener {
     }
 
     @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        if (!plugin.settings().lifespan().enabled() || !plugin.isWorldAllowed(event.getWorld())) {
+            return;
+        }
+        Chunk chunk = event.getChunk();
+        plugin.getServer().getScheduler().runTask(plugin, () -> refreshChunkVillagers(chunk));
+    }
+
+    @EventHandler
     public void onChunkUnload(ChunkUnloadEvent event) {
         for (Entity entity : event.getChunk().getEntities()) {
             if (entity instanceof Villager villager) {
@@ -330,6 +341,27 @@ public final class LifespanService implements Listener {
         int added = addMissingLifespan(plugin.settings().lifespan().days());
         if (added > 0 || plugin.settings().debug()) {
             plugin.getLogger().info("[寿命系统] 自动补全村民寿命数量: " + added);
+        }
+    }
+
+    private void refreshChunkVillagers(Chunk chunk) {
+        if (!plugin.settings().lifespan().enabled() || !chunk.isLoaded() || !plugin.isWorldAllowed(chunk.getWorld())) {
+            return;
+        }
+        FotiaSettings.Lifespan lifespan = plugin.settings().lifespan();
+        for (Entity entity : chunk.getEntities()) {
+            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                continue;
+            }
+            if (isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
+            }
+            if (hasLifespan(villager)) {
+                refreshDisplay(villager);
+            } else if (lifespan.autoAddEnabled()) {
+                setLifespan(villager, lifespan.days());
+            }
         }
     }
 
