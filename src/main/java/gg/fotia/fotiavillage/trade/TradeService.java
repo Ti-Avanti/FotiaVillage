@@ -3,6 +3,7 @@ package gg.fotia.fotiavillage.trade;
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import gg.fotia.fotiavillage.util.ExperienceUtil;
+import gg.fotia.fotiavillage.util.TimeUtil;
 import io.papermc.paper.event.player.PlayerTradeEvent;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -28,9 +29,11 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -47,6 +50,7 @@ public final class TradeService implements Listener {
     private final NamespacedKey tradeGuiLoreSizeKey;
     private final Map<UUID, TradeGuiSession> tradeGuiSessions = new HashMap<>();
     private final Map<UUID, List<TradeClickAllowance>> tradeClickAllowances = new HashMap<>();
+    private final Set<UUID> pendingTradeDisplayCleanup = new HashSet<>();
 
     public TradeService(FotiaVillagePlugin plugin, PermissionGroupService groups, EconomyBalanceService economy, TradeLimitService limits, CooldownService cooldowns, CostScalingService scaling) {
         this.plugin = plugin;
@@ -470,6 +474,8 @@ public final class TradeService implements Listener {
             return TradeDecision.block("trade.disabled");
         }
 
+        primeTradeState(player, trade);
+
         long remainingCooldown = cooldowns.remaining(player, profession, itemType);
         if (remainingCooldown > 0) {
             return TradeDecision.block("trade.cooldown", Map.of("time", plugin.language().formatDuration(remainingCooldown)));
@@ -574,6 +580,7 @@ public final class TradeService implements Listener {
             return;
         }
         restoreTradeGui(player.getUniqueId());
+        primeTradeState(player, plugin.settings().tradeControl());
         List<MerchantRecipe> originalRecipes = cleanCopyRecipes(villager.getRecipes());
         List<MerchantRecipe> decoratedRecipes = new ArrayList<>();
         String profession = profession(villager);
@@ -688,6 +695,16 @@ public final class TradeService implements Listener {
         return String.format(Locale.ROOT, "%.2f", value);
     }
 
+    private void primeTradeState(Player player, FotiaSettings.TradeControl trade) {
+        plugin.database().primeTradeState(
+            player.getUniqueId(),
+            TimeUtil.resetKey(trade.limit().resetPeriod()),
+            trade.limit().enabled(),
+            trade.cooldown().enabled(),
+            trade.costScaling().enabled()
+        );
+    }
+
     private List<MerchantRecipe> cleanCopyRecipes(List<MerchantRecipe> recipes) {
         List<MerchantRecipe> copies = new ArrayList<>();
         for (MerchantRecipe recipe : recipes) {
@@ -717,17 +734,41 @@ public final class TradeService implements Listener {
     }
 
     private void stripTradeDisplayNextTick(Player player) {
+        UUID playerId = player.getUniqueId();
+        if (!pendingTradeDisplayCleanup.add(playerId)) {
+            return;
+        }
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            player.setItemOnCursor(stripTradeGuiInfo(player.getItemOnCursor()));
+            pendingTradeDisplayCleanup.remove(playerId);
+            if (!player.isOnline()) {
+                return;
+            }
+            boolean changed = false;
+            ItemStack cursor = player.getItemOnCursor();
+            if (hasTradeGuiInfo(cursor)) {
+                player.setItemOnCursor(stripTradeGuiInfo(cursor));
+                changed = true;
+            }
             PlayerInventory inventory = player.getInventory();
             for (int slot = 0; slot < inventory.getSize(); slot++) {
                 ItemStack item = inventory.getItem(slot);
-                if (item != null && item.getType() != Material.AIR) {
+                if (hasTradeGuiInfo(item)) {
                     inventory.setItem(slot, stripTradeGuiInfo(item));
+                    changed = true;
                 }
             }
-            player.updateInventory();
+            if (changed) {
+                player.updateInventory();
+            }
         });
+    }
+
+    private boolean hasTradeGuiInfo(ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.getPersistentDataContainer().has(tradeGuiMarkerKey, PersistentDataType.BYTE);
     }
 
     private ItemStack stripTradeGuiInfo(ItemStack item) {

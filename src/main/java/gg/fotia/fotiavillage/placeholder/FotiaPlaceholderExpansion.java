@@ -49,10 +49,9 @@ public final class FotiaPlaceholderExpansion extends PlaceholderExpansion {
         if (online == null) {
             return "";
         }
-        PlayerTradeStats stats = plugin.stats().find(online.getUniqueId()).orElse(null);
         return switch (normalized) {
-            case "trades" -> stats == null ? "0" : String.valueOf(stats.totalTrades());
-            case "exp_spent" -> stats == null ? "0" : String.valueOf(stats.totalExpSpent());
+            case "trades" -> statValue(online, PlayerTradeStats::totalTrades);
+            case "exp_spent" -> statValue(online, PlayerTradeStats::totalExpSpent);
             case "rank" -> String.valueOf(plugin.stats().rank(online.getUniqueId()));
             case "group" -> plugin.permissionGroups().group(online).name();
             case "group_priority" -> String.valueOf(plugin.permissionGroups().group(online).priority());
@@ -62,6 +61,11 @@ public final class FotiaPlaceholderExpansion extends PlaceholderExpansion {
             case "player_level" -> String.valueOf(online.getLevel());
             default -> null;
         };
+    }
+
+    private String statValue(Player player, java.util.function.ToIntFunction<PlayerTradeStats> value) {
+        PlayerTradeStats stats = plugin.stats().find(player.getUniqueId()).orElse(null);
+        return stats == null ? "0" : String.valueOf(value.applyAsInt(stats));
     }
 
     private String top(String params) {

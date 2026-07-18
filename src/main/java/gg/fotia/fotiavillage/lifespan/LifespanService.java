@@ -35,6 +35,7 @@ import org.bukkit.util.RayTraceResult;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +52,11 @@ public final class LifespanService implements Listener {
     private final NamespacedKey zombieTradeSnapshotKey;
     private final NamespacedKey tradeGuiMarkerKey;
     private final NamespacedKey tradeGuiLoreSizeKey;
+    private final LifespanExpiryQueue expiryQueue = new LifespanExpiryQueue();
     private final ArrayDeque<UUID> chunkLoadRefreshQueue = new ArrayDeque<>();
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
+    private final Map<UUID, Villager> loadedVillagers = new HashMap<>();
+    private final Map<UUID, Villager> lifespanVillagers = new HashMap<>();
     private final Set<UUID> queuedChunkLoadRefreshVillagers = new HashSet<>();
     private final Set<UUID> targetedVillagers = new HashSet<>();
     private final Set<UUID> visibleVillagers = new HashSet<>();
@@ -78,7 +82,9 @@ public final class LifespanService implements Listener {
         if (!plugin.settings().lifespan().enabled()) {
             return;
         }
-        tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkExpirations, 20L * 60L, 20L * 60L));
+        rebuildLoadedVillagerIndex();
+        long expirationInterval = plugin.settings().lifespan().expirationCheckIntervalTicks();
+        tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkExpirations, expirationInterval, expirationInterval));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickDisplayRenderer, 1L, 1L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateTargetedVillagers, 1L, plugin.settings().lifespan().displayVisibilityCheckIntervalTicks()));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, 20L * 5L, 20L * 5L));
@@ -104,6 +110,9 @@ public final class LifespanService implements Listener {
         }
         chunkLoadRefreshQueue.clear();
         queuedChunkLoadRefreshVillagers.clear();
+        expiryQueue.clear();
+        loadedVillagers.clear();
+        lifespanVillagers.clear();
         targetedVillagers.clear();
         visibleVillagers.clear();
     }
@@ -119,6 +128,7 @@ public final class LifespanService implements Listener {
         }
         long end = safeAdd(System.currentTimeMillis(), daysToMillis(days));
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
+        registerLifespanVillager(villager, end);
         refreshDisplay(villager);
         return true;
     }
@@ -137,6 +147,7 @@ public final class LifespanService implements Listener {
         long baseEnd = currentEnd == null ? now : Math.max(now, currentEnd);
         long end = safeAdd(baseEnd, daysToMillis(days));
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
+        registerLifespanVillager(villager, end);
         refreshDisplay(villager);
         return Math.max(0L, end - now);
     }
@@ -161,12 +172,12 @@ public final class LifespanService implements Listener {
         if (remaining <= 0L) {
             villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, now);
             expireVillager(villager);
-            plugin.villagerTracker().initialize();
             return new LifespanRemoveResult(LifespanRemoveStatus.SUCCESS, 0L, true);
         }
 
         long end = safeAdd(now, remaining);
         villager.getPersistentDataContainer().set(lifespanEndKey, PersistentDataType.LONG, end);
+        registerLifespanVillager(villager, end);
         refreshDisplay(villager);
         return new LifespanRemoveResult(LifespanRemoveStatus.SUCCESS, remaining, false);
     }
@@ -256,11 +267,17 @@ public final class LifespanService implements Listener {
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
-        if (!plugin.settings().lifespan().enabled() || !plugin.settings().lifespan().chunkLoadRefreshEnabled() || !plugin.isWorldAllowed(event.getWorld())) {
+        if (!plugin.settings().lifespan().enabled() || !plugin.isWorldAllowed(event.getWorld())) {
             return;
         }
         Chunk chunk = event.getChunk();
-        plugin.getServer().getScheduler().runTask(plugin, () -> queueChunkVillagers(chunk));
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (plugin.settings().lifespan().chunkLoadRefreshEnabled()) {
+                queueChunkVillagers(chunk);
+            } else {
+                indexChunkVillagers(chunk);
+            }
+        });
     }
 
     @EventHandler
@@ -268,6 +285,7 @@ public final class LifespanService implements Listener {
         for (Entity entity : event.getChunk().getEntities()) {
             if (entity instanceof Villager villager) {
                 cleanupDisplay(villager);
+                unregisterLoadedVillager(villager.getUniqueId());
             }
         }
     }
@@ -295,25 +313,27 @@ public final class LifespanService implements Listener {
         if (!plugin.settings().lifespan().enabled()) {
             return;
         }
-        boolean removedAny = false;
-        for (var world : plugin.getServer().getWorlds()) {
-            if (!plugin.isWorldAllowed(world)) {
-                cleanupWorldDisplays(world);
+        long now = System.currentTimeMillis();
+        int maxPerCheck = plugin.settings().lifespan().expirationMaxVillagersPerCheck();
+        for (UUID villagerId : expiryQueue.pollExpired(now, maxPerCheck)) {
+            Villager villager = lifespanVillagers.get(villagerId);
+            if (villager == null || !villager.isValid() || villager.isDead()) {
+                if (villager != null) {
+                    cleanupDisplay(villager);
+                }
+                unregisterLoadedVillager(villagerId);
                 continue;
             }
-            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-                if (isExcluded(villager)) {
-                    clearLifespanData(villager);
-                    continue;
-                }
-                if (hasLifespan(villager) && remaining(villager) <= 0) {
-                    expireVillager(villager);
-                    removedAny = true;
-                }
+            Long end = villager.getPersistentDataContainer().get(lifespanEndKey, PersistentDataType.LONG);
+            if (end == null || isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
             }
-        }
-        if (removedAny) {
-            plugin.villagerTracker().initialize();
+            if (end > now) {
+                registerLifespanVillager(villager, end);
+                continue;
+            }
+            expireVillager(villager);
         }
     }
 
@@ -321,23 +341,20 @@ public final class LifespanService implements Listener {
         if (!plugin.settings().lifespan().enabled()) {
             return;
         }
-        for (var world : plugin.getServer().getWorlds()) {
-            if (!plugin.isWorldAllowed(world)) {
-                cleanupWorldDisplays(world);
+        for (Villager villager : new ArrayList<>(lifespanVillagers.values())) {
+            if (!villager.isValid() || villager.isDead() || !plugin.isWorldAllowed(villager.getWorld())) {
+                cleanupDisplay(villager);
+                unregisterLoadedVillager(villager.getUniqueId());
                 continue;
             }
-            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-                if (isExcluded(villager)) {
-                    clearLifespanData(villager);
-                    continue;
-                }
-                if (hasLifespan(villager)) {
-                    if (shouldShowDisplay(villager)) {
-                        createOrUpdateDisplay(villager);
-                    } else {
-                        cleanupDisplay(villager);
-                    }
-                }
+            if (isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
+            }
+            if (shouldShowDisplay(villager)) {
+                createOrUpdateDisplay(villager);
+            } else {
+                cleanupDisplay(villager);
             }
         }
     }
@@ -346,7 +363,7 @@ public final class LifespanService implements Listener {
         if (!plugin.settings().lifespan().enabled() || !plugin.settings().lifespan().autoAddEnabled()) {
             return;
         }
-        int added = addMissingLifespan(plugin.settings().lifespan().days());
+        int added = addMissingTrackedLifespan(plugin.settings().lifespan().days());
         if (added > 0 || plugin.settings().debug()) {
             plugin.getLogger().info("[寿命系统] 自动补全村民寿命数量: " + added);
         }
@@ -363,6 +380,26 @@ public final class LifespanService implements Listener {
             UUID villagerId = villager.getUniqueId();
             if (queuedChunkLoadRefreshVillagers.add(villagerId)) {
                 chunkLoadRefreshQueue.add(villagerId);
+            }
+        }
+    }
+
+    private void indexChunkVillagers(Chunk chunk) {
+        if (!chunk.isLoaded() || !plugin.isWorldAllowed(chunk.getWorld())) {
+            return;
+        }
+        for (Entity entity : chunk.getEntities()) {
+            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                continue;
+            }
+            loadedVillagers.put(villager.getUniqueId(), villager);
+            if (isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
+            }
+            Long end = villager.getPersistentDataContainer().get(lifespanEndKey, PersistentDataType.LONG);
+            if (end != null) {
+                registerLifespanVillager(villager, end);
             }
         }
     }
@@ -394,11 +431,16 @@ public final class LifespanService implements Listener {
             cleanupDisplay(villager);
             return;
         }
+        loadedVillagers.put(villager.getUniqueId(), villager);
         if (isExcluded(villager)) {
             clearLifespanData(villager);
             return;
         }
         if (hasLifespanData(villager)) {
+            Long end = villager.getPersistentDataContainer().get(lifespanEndKey, PersistentDataType.LONG);
+            if (end != null) {
+                registerLifespanVillager(villager, end);
+            }
             refreshDisplay(villager);
             return;
         }
@@ -411,12 +453,69 @@ public final class LifespanService implements Listener {
         return villager.getPersistentDataContainer().has(lifespanEndKey, PersistentDataType.LONG);
     }
 
+    private void rebuildLoadedVillagerIndex() {
+        expiryQueue.clear();
+        loadedVillagers.clear();
+        lifespanVillagers.clear();
+        for (var world : plugin.getServer().getWorlds()) {
+            if (!plugin.isWorldAllowed(world)) {
+                continue;
+            }
+            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
+                loadedVillagers.put(villager.getUniqueId(), villager);
+                if (isExcluded(villager)) {
+                    clearLifespanData(villager);
+                    continue;
+                }
+                Long end = villager.getPersistentDataContainer().get(lifespanEndKey, PersistentDataType.LONG);
+                if (end != null) {
+                    registerLifespanVillager(villager, end);
+                }
+            }
+        }
+    }
+
+    private void registerLifespanVillager(Villager villager, long end) {
+        UUID villagerId = villager.getUniqueId();
+        loadedVillagers.put(villagerId, villager);
+        lifespanVillagers.put(villagerId, villager);
+        expiryQueue.track(villagerId, end);
+    }
+
+    private void unregisterLoadedVillager(UUID villagerId) {
+        loadedVillagers.remove(villagerId);
+        lifespanVillagers.remove(villagerId);
+        expiryQueue.untrack(villagerId);
+        targetedVillagers.remove(villagerId);
+        visibleVillagers.remove(villagerId);
+    }
+
+    private int addMissingTrackedLifespan(int days) {
+        int added = 0;
+        for (Villager villager : new ArrayList<>(loadedVillagers.values())) {
+            if (!villager.isValid() || villager.isDead() || !plugin.isWorldAllowed(villager.getWorld())) {
+                unregisterLoadedVillager(villager.getUniqueId());
+                continue;
+            }
+            if (isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
+            }
+            if (!hasLifespanData(villager) && setLifespan(villager, days)) {
+                added++;
+            }
+        }
+        return added;
+    }
+
     private boolean isExcluded(Villager villager) {
         return plugin.compatibility().isExcludedFromLifespan(villager);
     }
 
     private void clearLifespanData(Villager villager) {
         cleanupDisplay(villager);
+        lifespanVillagers.remove(villager.getUniqueId());
+        expiryQueue.untrack(villager.getUniqueId());
         villager.getPersistentDataContainer().remove(lifespanEndKey);
         villager.getPersistentDataContainer().remove(displayIdKey);
     }
@@ -444,9 +543,11 @@ public final class LifespanService implements Listener {
     }
 
     private void expireVillager(Villager villager) {
+        unregisterLoadedVillager(villager.getUniqueId());
         cleanupDisplay(villager);
         boolean zombified = plugin.settings().lifespan().zombifyOnExpire() && spawnZombieVillager(villager);
         notifyExpired(villager, zombified);
+        plugin.villagerTracker().removeTrackedVillager(villager);
         villager.remove();
     }
 
@@ -739,26 +840,22 @@ public final class LifespanService implements Listener {
     }
 
     private void updateDisplayVisibility() {
-        for (var world : plugin.getServer().getWorlds()) {
-            if (!plugin.isWorldAllowed(world)) {
-                cleanupWorldDisplays(world);
+        for (Villager villager : new ArrayList<>(lifespanVillagers.values())) {
+            if (!villager.isValid() || villager.isDead() || !plugin.isWorldAllowed(villager.getWorld())) {
+                cleanupDisplay(villager);
+                unregisterLoadedVillager(villager.getUniqueId());
                 continue;
             }
-            for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-                if (isExcluded(villager)) {
-                    clearLifespanData(villager);
-                    continue;
-                }
-                if (!hasLifespan(villager)) {
-                    continue;
-                }
-                boolean shouldShow = shouldShowDisplay(villager);
-                boolean isVisible = visibleVillagers.contains(villager.getUniqueId());
-                if (shouldShow && !isVisible) {
-                    createOrUpdateDisplay(villager);
-                } else if (!shouldShow && isVisible) {
-                    cleanupDisplay(villager);
-                }
+            if (isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
+            }
+            boolean shouldShow = shouldShowDisplay(villager);
+            boolean isVisible = visibleVillagers.contains(villager.getUniqueId());
+            if (shouldShow && !isVisible) {
+                createOrUpdateDisplay(villager);
+            } else if (!shouldShow && isVisible) {
+                cleanupDisplay(villager);
             }
         }
     }

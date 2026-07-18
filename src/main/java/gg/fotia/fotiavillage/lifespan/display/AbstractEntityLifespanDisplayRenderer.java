@@ -15,6 +15,7 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
     protected final NamespacedKey displayIdKey;
     protected final NamespacedKey displayOwnerKey;
     private final Map<UUID, Entity> displays = new ConcurrentHashMap<>();
+    private final Map<UUID, LifespanDisplayText> renderedTexts = new ConcurrentHashMap<>();
 
     AbstractEntityLifespanDisplayRenderer(FotiaVillagePlugin plugin, NamespacedKey displayIdKey, NamespacedKey displayOwnerKey) {
         this.plugin = plugin;
@@ -24,23 +25,32 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
 
     @Override
     public final void createOrUpdate(Villager villager, LifespanDisplayText text) {
-        Entity display = displays.get(villager.getUniqueId());
+        UUID villagerId = villager.getUniqueId();
+        Entity display = displays.get(villagerId);
+        boolean created = false;
         if (display == null || !display.isValid() || !isDisplayEntity(display)) {
             cleanup(villager);
             display = createDisplay(villager);
+            created = true;
             display.setPersistent(false);
             display.setSilent(true);
             display.setInvulnerable(true);
             display.getPersistentDataContainer().set(displayOwnerKey, PersistentDataType.STRING, villager.getUniqueId().toString());
-            displays.put(villager.getUniqueId(), display);
+            displays.put(villagerId, display);
             villager.getPersistentDataContainer().set(displayIdKey, PersistentDataType.STRING, display.getUniqueId().toString());
         }
-        updateDisplay(villager, display, text);
+        maintainDisplay(villager, display);
+        if (created || !text.equals(renderedTexts.get(villagerId))) {
+            updateDisplay(villager, display, text);
+            renderedTexts.put(villagerId, text);
+        }
     }
 
     @Override
     public final void cleanup(Villager villager) {
-        Entity display = displays.remove(villager.getUniqueId());
+        UUID villagerId = villager.getUniqueId();
+        Entity display = displays.remove(villagerId);
+        renderedTexts.remove(villagerId);
         if (display != null && display.isValid()) {
             display.remove();
         }
@@ -75,6 +85,7 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
     public final void removeAll() {
         displays.values().forEach(Entity::remove);
         displays.clear();
+        renderedTexts.clear();
         for (var world : plugin.getServer().getWorlds()) {
             for (Entity display : world.getEntities()) {
                 if (display.getPersistentDataContainer().has(displayOwnerKey, PersistentDataType.STRING)) {
@@ -87,6 +98,9 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
     protected abstract boolean isDisplayEntity(Entity entity);
 
     protected abstract Entity createDisplay(Villager villager);
+
+    protected void maintainDisplay(Villager villager, Entity display) {
+    }
 
     protected abstract void updateDisplay(Villager villager, Entity display, LifespanDisplayText text);
 

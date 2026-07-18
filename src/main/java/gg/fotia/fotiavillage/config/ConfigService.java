@@ -65,7 +65,9 @@ public final class ConfigService {
                 config.getBoolean("performance.auto-report", true),
                 atLeast(config.getInt("performance.report-interval", 300), 0),
                 atLeast(config.getDouble("performance.low-tps-warning", 18.0), 0.0),
-                atLeast(config.getInt("performance.cleanup-expired-interval", 600), 0)
+                atLeast(config.getInt("performance.cleanup-expired-interval", 600), 0),
+                atLeast(config.getInt("performance.database-read-cache-seconds", 5), 0),
+                atLeast(config.getInt("performance.leaderboard-cache-seconds", 2), 0)
             ),
             new FotiaSettings.WorldFilter(
                 config.getBoolean("world-filter.enabled", true),
@@ -106,6 +108,8 @@ public final class ConfigService {
                 config.getBoolean("villager-lifespan.display.custom-nameplates.enabled", false),
                 config.getString("villager-lifespan.display.custom-nameplates.nameplate-id", ""),
                 config.getBoolean("villager-lifespan.zombify-on-expire", false),
+                atLeast(config.getInt("villager-lifespan.expiration.check-interval-ticks", 20), 1),
+                atLeast(config.getInt("villager-lifespan.expiration.max-villagers-per-check", 20), 1),
                 config.getBoolean("villager-lifespan.auto-add-lifespan.enabled", true),
                 atLeast(config.getInt("villager-lifespan.auto-add-lifespan.check-interval", 300), 0),
                 config.getBoolean("villager-lifespan.auto-add-lifespan.check-on-startup", true),
@@ -162,7 +166,7 @@ public final class ConfigService {
             ),
             new FotiaSettings.Statistics(
                 config.getBoolean("trade-control.statistics.enabled", true),
-                config.getBoolean("trade-control.statistics.detailed-logging", true),
+                config.getBoolean("trade-control.statistics.detailed-logging", false),
                 atLeast(config.getInt("trade-control.statistics.leaderboard-size", 10), 1)
             ),
             new FotiaSettings.TradeGuiDisplay(

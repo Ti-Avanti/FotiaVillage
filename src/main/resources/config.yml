@@ -31,6 +31,10 @@ performance:
   low-tps-warning: 18.0
   # 清理过期数据库记录的间隔（秒）
   cleanup-expired-interval: 600
+  # 交易限制、冷却、倍率和玩家统计的数据库读取缓存（秒，0 表示关闭）
+  database-read-cache-seconds: 5
+  # 排行榜查询缓存（秒，0 表示关闭）
+  leaderboard-cache-seconds: 2
 
 # 世界过滤设置
 world-filter:
@@ -121,6 +125,12 @@ villager-lifespan:
   # 寿命到期后是否变成僵尸村民
   # false：按原逻辑直接移除；true：在原位置生成僵尸村民并移除原村民
   zombify-on-expire: false
+  # 寿命到期检查使用到期队列，不再周期扫描全部村民
+  expiration:
+    # 到期队列检查间隔（tick）
+    check-interval-ticks: 20
+    # 每次最多处理多少个到期村民，避免同一 tick 集中处理过多实体
+    max-villagers-per-check: 20
   # 自动为没有寿命的村民补全寿命
   auto-add-lifespan:
     # 是否启用自动补全
@@ -289,7 +299,7 @@ trade-control:
   statistics:
     enabled: true
     # 是否输出详细交易日志
-    detailed-logging: true
+    detailed-logging: false
     # 排行榜显示数量
     leaderboard-size: 10
 

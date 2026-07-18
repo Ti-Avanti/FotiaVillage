@@ -14,6 +14,7 @@ import java.sql.Statement;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,16 @@ import java.util.UUID;
 public final class DatabaseService {
     private final FotiaVillagePlugin plugin;
     private final File file;
+    private final TimedCache<UUID, Optional<PlayerTradeStats>> statsCache = new TimedCache<>();
+    private final TimedCache<String, Optional<PlayerTradeStats>> statsByNameCache = new TimedCache<>();
+    private final TimedCache<Integer, List<PlayerTradeStats>> leaderboardCache = new TimedCache<>();
+    private final TimedCache<UUID, Integer> rankCache = new TimedCache<>();
+    private final TimedCache<TradeCountKey, Integer> tradeCountCache = new TimedCache<>();
+    private final TimedCache<CooldownKey, Long> cooldownCache = new TimedCache<>();
+    private final TimedCache<ScalingKey, ScalingRecord> scalingCache = new TimedCache<>();
+    private final TimedCache<TradeLimitScopeKey, Boolean> tradeLimitScopes = new TimedCache<>();
+    private final TimedCache<UUID, Boolean> cooldownScopes = new TimedCache<>();
+    private final TimedCache<UUID, Boolean> scalingScopes = new TimedCache<>();
     private Connection connection;
 
     public DatabaseService(FotiaVillagePlugin plugin) {
@@ -43,6 +54,7 @@ public final class DatabaseService {
     }
 
     public synchronized void close() {
+        clearCaches();
         if (connection == null) {
             return;
         }
@@ -53,6 +65,10 @@ public final class DatabaseService {
         } finally {
             connection = null;
         }
+    }
+
+    public synchronized void clearReadCaches() {
+        clearCaches();
     }
 
     public synchronized boolean isConnected() {
@@ -72,12 +88,15 @@ public final class DatabaseService {
                 connection.commit();
             } catch (RuntimeException ex) {
                 rollbackQuietly(ex);
+                clearCaches();
                 throw ex;
             } catch (SQLException ex) {
                 rollbackQuietly(ex);
+                clearCaches();
                 throw new IllegalStateException("Failed to commit database transaction", ex);
             } catch (Error ex) {
                 rollbackQuietly(ex);
+                clearCaches();
                 throw ex;
             } finally {
                 connection.setAutoCommit(autoCommit);
@@ -136,19 +155,28 @@ public final class DatabaseService {
                 stmt.setString(2, itemType);
                 stmt.executeUpdate();
             }
+            invalidateStatsCaches(uuid);
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to record trade", ex);
         }
     }
 
     public synchronized Optional<PlayerTradeStats> findStats(UUID uuid) {
+        Optional<PlayerTradeStats> cached = statsCache.get(uuid);
+        if (cached != null) {
+            return cached;
+        }
         try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats WHERE uuid = ?")) {
             stmt.setString(1, uuid.toString());
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
-                    return Optional.empty();
+                    Optional<PlayerTradeStats> result = Optional.empty();
+                    statsCache.put(uuid, result, readCacheMillis());
+                    return result;
                 }
-                return Optional.of(readStatsRow(rs, loadItemCounts(uuid)));
+                Optional<PlayerTradeStats> result = Optional.of(readStatsRow(rs, loadItemCounts(uuid)));
+                cacheStats(result.get());
+                return result;
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to load player stats", ex);
@@ -156,14 +184,23 @@ public final class DatabaseService {
     }
 
     public synchronized Optional<PlayerTradeStats> findStatsByName(String playerName) {
+        String normalizedName = playerName.toLowerCase(Locale.ROOT);
+        Optional<PlayerTradeStats> cached = statsByNameCache.get(normalizedName);
+        if (cached != null) {
+            return cached;
+        }
         try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats WHERE player_name = ? COLLATE NOCASE ORDER BY updated_at DESC LIMIT 1")) {
             stmt.setString(1, playerName);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
-                    return Optional.empty();
+                    Optional<PlayerTradeStats> result = Optional.empty();
+                    statsByNameCache.put(normalizedName, result, readCacheMillis());
+                    return result;
                 }
                 UUID uuid = UUID.fromString(rs.getString("uuid"));
-                return Optional.of(readStatsRow(rs, loadItemCounts(uuid)));
+                Optional<PlayerTradeStats> result = Optional.of(readStatsRow(rs, loadItemCounts(uuid)));
+                cacheStats(result.get());
+                return result;
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to load player stats by name", ex);
@@ -171,15 +208,20 @@ public final class DatabaseService {
     }
 
     public synchronized List<PlayerTradeStats> leaderboard(int limit) {
+        List<PlayerTradeStats> cached = leaderboardCache.get(limit);
+        if (cached != null) {
+            return cached;
+        }
         try (PreparedStatement stmt = connection.prepareStatement("SELECT uuid, player_name, total_trades, total_exp_spent, last_trade_time FROM player_stats ORDER BY total_trades DESC, total_exp_spent DESC LIMIT ?")) {
             stmt.setInt(1, limit);
             try (ResultSet rs = stmt.executeQuery()) {
                 java.util.ArrayList<PlayerTradeStats> result = new java.util.ArrayList<>();
                 while (rs.next()) {
-                    UUID uuid = UUID.fromString(rs.getString("uuid"));
-                    result.add(readStatsRow(rs, loadItemCounts(uuid)));
+                    result.add(readStatsRow(rs, Map.of()));
                 }
-                return result;
+                List<PlayerTradeStats> snapshot = List.copyOf(result);
+                leaderboardCache.put(limit, snapshot, leaderboardCacheMillis());
+                return snapshot;
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to load leaderboard", ex);
@@ -187,10 +229,15 @@ public final class DatabaseService {
     }
 
     public synchronized int rank(UUID uuid) {
+        Integer cached = rankCache.get(uuid);
+        if (cached != null) {
+            return cached;
+        }
         try (PreparedStatement stats = connection.prepareStatement("SELECT total_trades, total_exp_spent FROM player_stats WHERE uuid = ?")) {
             stats.setString(1, uuid.toString());
             try (ResultSet rs = stats.executeQuery()) {
                 if (!rs.next()) {
+                    rankCache.put(uuid, -1, leaderboardCacheMillis());
                     return -1;
                 }
                 int trades = rs.getInt("total_trades");
@@ -200,7 +247,9 @@ public final class DatabaseService {
                     rank.setInt(2, trades);
                     rank.setInt(3, exp);
                     try (ResultSet rankRs = rank.executeQuery()) {
-                        return rankRs.next() ? rankRs.getInt("rank") : -1;
+                        int result = rankRs.next() ? rankRs.getInt("rank") : -1;
+                        rankCache.put(uuid, result, leaderboardCacheMillis());
+                        return result;
                     }
                 }
             }
@@ -209,14 +258,59 @@ public final class DatabaseService {
         }
     }
 
+    public synchronized void primeTradeState(UUID uuid, String resetKey, boolean loadLimits, boolean loadCooldowns, boolean loadScaling) {
+        long ttlMillis = readCacheMillis();
+        if (ttlMillis <= 0L) {
+            return;
+        }
+        TradeLimitScopeKey limitScope = new TradeLimitScopeKey(uuid, resetKey);
+        if (loadLimits && tradeLimitScopes.get(limitScope) == null) {
+            tradeLimitScopes.put(limitScope, true, ttlMillis);
+            try {
+                loadTradeLimitScope(uuid, resetKey, ttlMillis);
+            } catch (RuntimeException ex) {
+                tradeLimitScopes.invalidate(limitScope);
+                throw ex;
+            }
+        }
+        if (loadCooldowns && cooldownScopes.get(uuid) == null) {
+            cooldownScopes.put(uuid, true, ttlMillis);
+            try {
+                loadCooldownScope(uuid, ttlMillis);
+            } catch (RuntimeException ex) {
+                cooldownScopes.invalidate(uuid);
+                throw ex;
+            }
+        }
+        if (loadScaling && scalingScopes.get(uuid) == null) {
+            scalingScopes.put(uuid, true, ttlMillis);
+            try {
+                loadScalingScope(uuid, ttlMillis);
+            } catch (RuntimeException ex) {
+                scalingScopes.invalidate(uuid);
+                throw ex;
+            }
+        }
+    }
+
     public synchronized int getTradeCount(UUID uuid, String limitType, String limitKey, String resetKey) {
+        TradeCountKey cacheKey = new TradeCountKey(uuid, limitType, limitKey, resetKey);
+        Integer cached = tradeCountCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        if (tradeLimitScopes.get(new TradeLimitScopeKey(uuid, resetKey)) != null) {
+            return 0;
+        }
         try (PreparedStatement stmt = connection.prepareStatement("SELECT count FROM trade_limits WHERE uuid = ? AND limit_type = ? AND limit_key = ? AND reset_key = ?")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, limitType);
             stmt.setString(3, limitKey);
             stmt.setString(4, resetKey);
             try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() ? rs.getInt("count") : 0;
+                int result = rs.next() ? rs.getInt("count") : 0;
+                tradeCountCache.put(cacheKey, result, readCacheMillis());
+                return result;
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to load trade count", ex);
@@ -224,24 +318,44 @@ public final class DatabaseService {
     }
 
     public synchronized void incrementTradeCount(UUID uuid, String limitType, String limitKey, String resetKey) {
+        TradeCountKey cacheKey = new TradeCountKey(uuid, limitType, limitKey, resetKey);
+        Integer cached = tradeCountCache.get(cacheKey);
+        if (cached == null && tradeLimitScopes.get(new TradeLimitScopeKey(uuid, resetKey)) != null) {
+            cached = 0;
+        }
         try (PreparedStatement stmt = connection.prepareStatement("INSERT INTO trade_limits (uuid, limit_type, limit_key, reset_key, count) VALUES (?, ?, ?, ?, 1) ON CONFLICT(uuid, limit_type, limit_key, reset_key) DO UPDATE SET count = count + 1")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, limitType);
             stmt.setString(3, limitKey);
             stmt.setString(4, resetKey);
             stmt.executeUpdate();
+            if (cached != null) {
+                tradeCountCache.put(cacheKey, cached + 1, readCacheMillis());
+            } else {
+                tradeCountCache.invalidate(cacheKey);
+            }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to increment trade count", ex);
         }
     }
 
     public synchronized long getCooldownEnd(UUID uuid, String profession, String itemType) {
+        CooldownKey cacheKey = new CooldownKey(uuid, profession, itemType);
+        Long cached = cooldownCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        if (cooldownScopes.get(uuid) != null) {
+            return 0L;
+        }
         try (PreparedStatement stmt = connection.prepareStatement("SELECT cooldown_end FROM trade_cooldowns WHERE uuid = ? AND profession = ? AND item_type = ?")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, profession);
             stmt.setString(3, itemType);
             try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() ? rs.getLong("cooldown_end") : 0L;
+                long result = rs.next() ? rs.getLong("cooldown_end") : 0L;
+                cooldownCache.put(cacheKey, result, readCacheMillis());
+                return result;
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to load cooldown", ex);
@@ -249,26 +363,40 @@ public final class DatabaseService {
     }
 
     public synchronized void setCooldown(UUID uuid, String profession, String itemType, long cooldownEnd) {
+        CooldownKey cacheKey = new CooldownKey(uuid, profession, itemType);
         try (PreparedStatement stmt = connection.prepareStatement("INSERT INTO trade_cooldowns (uuid, profession, item_type, cooldown_end) VALUES (?, ?, ?, ?) ON CONFLICT(uuid, profession, item_type) DO UPDATE SET cooldown_end = excluded.cooldown_end")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, profession);
             stmt.setString(3, itemType);
             stmt.setLong(4, cooldownEnd);
             stmt.executeUpdate();
+            cooldownCache.put(cacheKey, cooldownEnd, readCacheMillis());
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to set cooldown", ex);
         }
     }
 
     public synchronized ScalingRecord getScaling(UUID uuid, String itemType) {
+        ScalingKey cacheKey = new ScalingKey(uuid, itemType);
+        ScalingRecord cached = scalingCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        if (scalingScopes.get(uuid) != null) {
+            return ScalingRecord.empty();
+        }
         try (PreparedStatement stmt = connection.prepareStatement("SELECT multiplier, trade_count, last_trade_time FROM trade_scaling WHERE uuid = ? AND item_type = ?")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, itemType);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
-                    return ScalingRecord.empty();
+                    ScalingRecord result = ScalingRecord.empty();
+                    scalingCache.put(cacheKey, result, readCacheMillis());
+                    return result;
                 }
-                return new ScalingRecord(rs.getDouble("multiplier"), rs.getInt("trade_count"), rs.getLong("last_trade_time"));
+                ScalingRecord result = new ScalingRecord(rs.getDouble("multiplier"), rs.getInt("trade_count"), rs.getLong("last_trade_time"));
+                scalingCache.put(cacheKey, result, readCacheMillis());
+                return result;
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to load scaling", ex);
@@ -276,6 +404,7 @@ public final class DatabaseService {
     }
 
     public synchronized void saveScaling(UUID uuid, String itemType, ScalingRecord record) {
+        ScalingKey cacheKey = new ScalingKey(uuid, itemType);
         try (PreparedStatement stmt = connection.prepareStatement("INSERT INTO trade_scaling (uuid, item_type, multiplier, trade_count, last_trade_time) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uuid, item_type) DO UPDATE SET multiplier = excluded.multiplier, trade_count = excluded.trade_count, last_trade_time = excluded.last_trade_time")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, itemType);
@@ -283,6 +412,7 @@ public final class DatabaseService {
             stmt.setInt(4, record.tradeCount());
             stmt.setLong(5, record.lastTradeTime());
             stmt.executeUpdate();
+            scalingCache.put(cacheKey, record, readCacheMillis());
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to save scaling", ex);
         }
@@ -301,6 +431,7 @@ public final class DatabaseService {
             deleteByUuidUnchecked("trade_limits", id);
             deleteByUuidUnchecked("trade_scaling", id);
         });
+        clearCaches();
     }
 
     public synchronized void clearTradeData() {
@@ -311,6 +442,7 @@ public final class DatabaseService {
             executeUnchecked("DELETE FROM trade_limits", "Failed to clear trade limits");
             executeUnchecked("DELETE FROM trade_scaling", "Failed to clear trade scaling");
         });
+        clearCaches();
     }
 
     public synchronized void cleanupExpired(long now, String currentResetKey, long scalingExpiresBefore) {
@@ -326,6 +458,12 @@ public final class DatabaseService {
                     scaling.executeUpdate();
                 }
             }
+            tradeCountCache.clear();
+            cooldownCache.clear();
+            scalingCache.clear();
+            tradeLimitScopes.clear();
+            cooldownScopes.clear();
+            scalingScopes.clear();
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to cleanup expired data", ex);
         }
@@ -346,6 +484,85 @@ public final class DatabaseService {
                 return Collections.unmodifiableMap(result);
             }
         }
+    }
+
+    private void loadTradeLimitScope(UUID uuid, String resetKey, long ttlMillis) {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT limit_type, limit_key, count FROM trade_limits WHERE uuid = ? AND reset_key = ?")) {
+            stmt.setString(1, uuid.toString());
+            stmt.setString(2, resetKey);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    TradeCountKey key = new TradeCountKey(uuid, rs.getString("limit_type"), rs.getString("limit_key"), resetKey);
+                    tradeCountCache.put(key, rs.getInt("count"), ttlMillis);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to preload trade limits", ex);
+        }
+    }
+
+    private void loadCooldownScope(UUID uuid, long ttlMillis) {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT profession, item_type, cooldown_end FROM trade_cooldowns WHERE uuid = ?")) {
+            stmt.setString(1, uuid.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    CooldownKey key = new CooldownKey(uuid, rs.getString("profession"), rs.getString("item_type"));
+                    cooldownCache.put(key, rs.getLong("cooldown_end"), ttlMillis);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to preload trade cooldowns", ex);
+        }
+    }
+
+    private void loadScalingScope(UUID uuid, long ttlMillis) {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT item_type, multiplier, trade_count, last_trade_time FROM trade_scaling WHERE uuid = ?")) {
+            stmt.setString(1, uuid.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    ScalingKey key = new ScalingKey(uuid, rs.getString("item_type"));
+                    ScalingRecord record = new ScalingRecord(rs.getDouble("multiplier"), rs.getInt("trade_count"), rs.getLong("last_trade_time"));
+                    scalingCache.put(key, record, ttlMillis);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to preload trade scaling", ex);
+        }
+    }
+
+    private void cacheStats(PlayerTradeStats stats) {
+        Optional<PlayerTradeStats> value = Optional.of(stats);
+        long ttlMillis = readCacheMillis();
+        statsCache.put(stats.uuid(), value, ttlMillis);
+        statsByNameCache.put(stats.playerName().toLowerCase(Locale.ROOT), value, ttlMillis);
+    }
+
+    private void invalidateStatsCaches(UUID uuid) {
+        statsCache.invalidate(uuid);
+        statsByNameCache.clear();
+        leaderboardCache.clear();
+        rankCache.clear();
+    }
+
+    private long readCacheMillis() {
+        return plugin.settings().performance().databaseReadCacheSeconds() * 1000L;
+    }
+
+    private long leaderboardCacheMillis() {
+        return plugin.settings().performance().leaderboardCacheSeconds() * 1000L;
+    }
+
+    private void clearCaches() {
+        statsCache.clear();
+        statsByNameCache.clear();
+        leaderboardCache.clear();
+        rankCache.clear();
+        tradeCountCache.clear();
+        cooldownCache.clear();
+        scalingCache.clear();
+        tradeLimitScopes.clear();
+        cooldownScopes.clear();
+        scalingScopes.clear();
     }
 
     private void deleteByUuid(String table, String uuid) throws SQLException {
@@ -369,5 +586,17 @@ public final class DatabaseService {
         } catch (SQLException ex) {
             throw new IllegalStateException(message, ex);
         }
+    }
+
+    private record TradeCountKey(UUID uuid, String limitType, String limitKey, String resetKey) {
+    }
+
+    private record CooldownKey(UUID uuid, String profession, String itemType) {
+    }
+
+    private record ScalingKey(UUID uuid, String itemType) {
+    }
+
+    private record TradeLimitScopeKey(UUID uuid, String resetKey) {
     }
 }

@@ -16,13 +16,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class LanguageService {
+    private static final int FORMATTING_CACHE_SIZE = 2048;
+
     private final FotiaVillagePlugin plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
+    private final Map<String, String> normalizedTemplateCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
+    private final Map<String, Component> componentCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
     private FileConfiguration language;
     private FileConfiguration defaults;
     private String currentLanguage;
@@ -32,6 +38,8 @@ public final class LanguageService {
     }
 
     public void load() {
+        normalizedTemplateCache.clear();
+        componentCache.clear();
         currentLanguage = plugin.settings().language();
         File langFile = new File(plugin.getDataFolder(), "languages/" + currentLanguage + ".yml");
         if (!langFile.exists()) {
@@ -131,14 +139,33 @@ public final class LanguageService {
     }
 
     private Component formattedComponent(String template, Map<String, ?> replacements) {
-        String normalized = LegacyColorConverter.convertToMiniMessage(template);
+        String normalized = normalizedTemplateCache.computeIfAbsent(template, LegacyColorConverter::convertToMiniMessage);
         String raw = applyReplacements(normalized, replacements, true);
+        Component cached = componentCache.get(raw);
+        if (cached != null) {
+            return cached;
+        }
         try {
-            return miniMessage.deserialize(raw);
+            Component component = miniMessage.deserialize(raw);
+            componentCache.put(raw, component);
+            return component;
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Failed to parse MiniMessage text, falling back to legacy formatting: " + ex.getMessage());
         }
         return legacySection.deserialize(ChatColor.translateAlternateColorCodes('&', applyReplacements(template, replacements, false)));
+    }
+
+    private static <K, V> Map<K, V> boundedCache(int maxEntries) {
+        return new LinkedHashMap<>(128, 0.75F, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                return size() > maxEntries;
+            }
+        };
+    }
+
+    private static <K, V> Map<K, V> synchronizedBoundedCache(int maxEntries) {
+        return Collections.synchronizedMap(boundedCache(maxEntries));
     }
 
     private String template(String key) {

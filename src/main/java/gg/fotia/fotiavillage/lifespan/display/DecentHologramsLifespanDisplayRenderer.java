@@ -5,15 +5,14 @@ import eu.decentsoftware.holograms.api.holograms.Hologram;
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 public final class DecentHologramsLifespanDisplayRenderer implements LifespanDisplayRenderer {
     private static final String NAME_PREFIX = "fotiavillage_lifespan_";
@@ -21,7 +20,7 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
     private final FotiaVillagePlugin plugin;
     private final NamespacedKey displayIdKey;
     private final double heightOffset;
-    private final Map<UUID, String> hologramNames = new ConcurrentHashMap<>();
+    private final Map<UUID, TrackedHologram> holograms = new HashMap<>();
 
     public DecentHologramsLifespanDisplayRenderer(FotiaVillagePlugin plugin, NamespacedKey displayIdKey, double heightOffset) {
         this.plugin = plugin;
@@ -32,19 +31,32 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
     @Override
     public void createOrUpdate(Villager villager, LifespanDisplayText text) {
         UUID ownerId = villager.getUniqueId();
-        String name = hologramNames.computeIfAbsent(ownerId, this::hologramName);
+        String name = hologramName(ownerId);
         villager.getPersistentDataContainer().set(displayIdKey, PersistentDataType.STRING, name);
 
-        Location location = displayLocation(villager);
-        List<String> lines = text.hologramLines();
         try {
-            Hologram hologram = DHAPI.getHologram(name);
-            if (hologram == null) {
-                DHAPI.createHologram(name, location, false, lines);
-                return;
+            TrackedHologram tracked = holograms.get(ownerId);
+            boolean created = false;
+            Hologram registered = DHAPI.getHologram(name);
+            if (tracked == null || registered != tracked.hologram) {
+                Hologram hologram = registered;
+                if (hologram == null) {
+                    hologram = DHAPI.createHologram(name, displayLocation(villager), false, text.hologramLines());
+                    created = true;
+                }
+                tracked = new TrackedHologram(name, villager, hologram);
+                holograms.put(ownerId, tracked);
+            } else {
+                tracked.villager = villager;
             }
-            moveHologram(hologram, location);
-            DHAPI.setHologramLines(hologram, lines);
+
+            moveHologram(tracked, displayLocation(villager));
+            if (created) {
+                tracked.lines = List.copyOf(text.hologramLines());
+            } else if (!text.hologramLines().equals(tracked.lines)) {
+                DHAPI.setHologramLines(tracked.hologram, text.hologramLines());
+                tracked.lines = List.copyOf(text.hologramLines());
+            }
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Failed to update DecentHolograms lifespan display " + name + ": " + ex.getMessage());
         }
@@ -52,23 +64,20 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
 
     @Override
     public void tick() {
-        for (Map.Entry<UUID, String> entry : new ArrayList<>(hologramNames.entrySet())) {
-            Entity entity = plugin.getServer().getEntity(entry.getKey());
-            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
-                removeHologram(entry.getValue());
-                hologramNames.remove(entry.getKey(), entry.getValue());
-                continue;
-            }
-            Hologram hologram = DHAPI.getHologram(entry.getValue());
-            if (hologram == null) {
-                hologramNames.remove(entry.getKey(), entry.getValue());
+        Iterator<Map.Entry<UUID, TrackedHologram>> iterator = holograms.entrySet().iterator();
+        while (iterator.hasNext()) {
+            TrackedHologram tracked = iterator.next().getValue();
+            Villager villager = tracked.villager;
+            if (!villager.isValid() || villager.isDead()) {
+                removeHologram(tracked.name);
+                iterator.remove();
                 continue;
             }
             try {
-                moveHologram(hologram, displayLocation(villager));
+                moveHologram(tracked, displayLocation(villager));
             } catch (RuntimeException ex) {
                 if (plugin.settings().debug()) {
-                    plugin.getLogger().warning("Failed to move DecentHolograms lifespan display " + entry.getValue() + ": " + ex.getMessage());
+                    plugin.getLogger().warning("Failed to move DecentHolograms lifespan display " + tracked.name + ": " + ex.getMessage());
                 }
             }
         }
@@ -76,7 +85,8 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
 
     @Override
     public void cleanup(Villager villager) {
-        String name = hologramNames.remove(villager.getUniqueId());
+        TrackedHologram tracked = holograms.remove(villager.getUniqueId());
+        String name = tracked == null ? null : tracked.name;
         String storedName = villager.getPersistentDataContainer().get(displayIdKey, PersistentDataType.STRING);
         if (storedName != null && storedName.startsWith(NAME_PREFIX)) {
             name = storedName;
@@ -87,21 +97,22 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
 
     @Override
     public void cleanupOrphans() {
-        for (Map.Entry<UUID, String> entry : new ArrayList<>(hologramNames.entrySet())) {
-            Entity entity = plugin.getServer().getEntity(entry.getKey());
-            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
-                removeHologram(entry.getValue());
-                hologramNames.remove(entry.getKey(), entry.getValue());
+        Iterator<Map.Entry<UUID, TrackedHologram>> iterator = holograms.entrySet().iterator();
+        while (iterator.hasNext()) {
+            TrackedHologram tracked = iterator.next().getValue();
+            if (!tracked.villager.isValid() || tracked.villager.isDead()) {
+                removeHologram(tracked.name);
+                iterator.remove();
             }
         }
     }
 
     @Override
     public void removeAll() {
-        for (String name : new ArrayList<>(hologramNames.values())) {
-            removeHologram(name);
+        for (TrackedHologram tracked : holograms.values()) {
+            removeHologram(tracked.name);
         }
-        hologramNames.clear();
+        holograms.clear();
         for (var world : plugin.getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
                 String storedName = villager.getPersistentDataContainer().get(displayIdKey, PersistentDataType.STRING);
@@ -125,12 +136,13 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
         return villager.getLocation().add(0, villager.getHeight() + heightOffset, 0);
     }
 
-    private void moveHologram(Hologram hologram, Location location) {
-        Location current = hologram.getLocation();
-        if (current != null && current.getWorld() == location.getWorld() && current.distanceSquared(location) < 0.0001D) {
+    private void moveHologram(TrackedHologram tracked, Location location) {
+        Location last = tracked.lastLocation;
+        if (last != null && last.getWorld() == location.getWorld() && last.distanceSquared(location) < 0.0001D) {
             return;
         }
-        DHAPI.moveHologram(hologram, location);
+        DHAPI.moveHologram(tracked.hologram, location);
+        tracked.lastLocation = location;
     }
 
     private void removeHologram(String name) {
@@ -141,6 +153,20 @@ public final class DecentHologramsLifespanDisplayRenderer implements LifespanDis
             DHAPI.removeHologram(name);
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Failed to remove DecentHolograms lifespan display " + name + ": " + ex.getMessage());
+        }
+    }
+
+    private static final class TrackedHologram {
+        private final String name;
+        private final Hologram hologram;
+        private Villager villager;
+        private Location lastLocation;
+        private List<String> lines = List.of();
+
+        private TrackedHologram(String name, Villager villager, Hologram hologram) {
+            this.name = name;
+            this.villager = villager;
+            this.hologram = hologram;
         }
     }
 }

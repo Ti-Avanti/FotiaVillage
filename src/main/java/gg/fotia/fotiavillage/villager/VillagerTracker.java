@@ -55,6 +55,12 @@ public final class VillagerTracker implements Listener {
         return new TrackerStats(counts.size(), counts.values().stream().mapToInt(Integer::intValue).sum());
     }
 
+    public void removeTrackedVillager(Villager villager) {
+        if (villager != null && plugin.isWorldAllowed(villager.getWorld())) {
+            decrement(villager.getChunk());
+        }
+    }
+
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
         if (!plugin.isWorldAllowed(event.getWorld())) {

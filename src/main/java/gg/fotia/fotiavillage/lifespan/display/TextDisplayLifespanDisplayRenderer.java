@@ -44,10 +44,15 @@ public final class TextDisplayLifespanDisplayRenderer extends AbstractEntityLife
     }
 
     @Override
-    protected void updateDisplay(Villager villager, Entity display, LifespanDisplayText text) {
+    protected void maintainDisplay(Villager villager, Entity display) {
         TextDisplay textDisplay = (TextDisplay) display;
         attachToVillager(villager, textDisplay);
         updateTranslation(villager, textDisplay);
+    }
+
+    @Override
+    protected void updateDisplay(Villager villager, Entity display, LifespanDisplayText text) {
+        TextDisplay textDisplay = (TextDisplay) display;
         textDisplay.text(text.component());
     }
 

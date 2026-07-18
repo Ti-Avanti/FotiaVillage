@@ -90,6 +90,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
 
     public void reloadRuntime() {
         configService.load();
+        databaseService.clearReadCaches();
         lifespanItemService.load();
         languageService.load();
         villagerTracker.initialize();
