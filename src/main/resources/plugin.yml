@@ -10,6 +10,8 @@ softdepend:
   - Citizens
   - DecentHolograms
   - CustomNameplates
+libraries:
+  - org.xerial:sqlite-jdbc:3.45.3.0
 commands:
   fv:
     description: FotiaVillage 主命令

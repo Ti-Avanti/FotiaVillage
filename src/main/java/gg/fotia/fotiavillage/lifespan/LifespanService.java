@@ -9,7 +9,7 @@ import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayRenderer;
 import gg.fotia.fotiavillage.lifespan.display.LifespanDisplayText;
 import gg.fotia.fotiavillage.lifespan.display.LifespanTagFormatter;
 import gg.fotia.fotiavillage.lifespan.display.TextDisplayLifespanDisplayRenderer;
-import org.bukkit.Chunk;
+import gg.fotia.fotiavillage.util.TradeRecipeUtil;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -23,12 +23,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTransformEvent;
-import org.bukkit.event.world.ChunkLoadEvent;
-import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
+import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.RayTraceResult;
@@ -50,8 +48,7 @@ public final class LifespanService implements Listener {
     private final NamespacedKey displayIdKey;
     private final NamespacedKey displayOwnerKey;
     private final NamespacedKey zombieTradeSnapshotKey;
-    private final NamespacedKey tradeGuiMarkerKey;
-    private final NamespacedKey tradeGuiLoreSizeKey;
+    private final TradeRecipeUtil tradeRecipes;
     private final LifespanExpiryQueue expiryQueue = new LifespanExpiryQueue();
     private final ArrayDeque<UUID> chunkLoadRefreshQueue = new ArrayDeque<>();
     private final ArrayList<BukkitTask> tasks = new ArrayList<>();
@@ -69,8 +66,7 @@ public final class LifespanService implements Listener {
         this.displayIdKey = new NamespacedKey(plugin, "lifespan_display");
         this.displayOwnerKey = new NamespacedKey(plugin, "lifespan_display_owner");
         this.zombieTradeSnapshotKey = new NamespacedKey(plugin, "zombie_trade_snapshot");
-        this.tradeGuiMarkerKey = new NamespacedKey(plugin, "trade_gui_display");
-        this.tradeGuiLoreSizeKey = new NamespacedKey(plugin, "trade_gui_lore_size");
+        this.tradeRecipes = new TradeRecipeUtil(plugin);
         this.tagFormatter = LifespanDisplayText::plain;
         this.displayRenderer = new ArmorStandLifespanDisplayRenderer(plugin, displayIdKey, displayOwnerKey, 0.65D);
     }
@@ -87,7 +83,8 @@ public final class LifespanService implements Listener {
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkExpirations, expirationInterval, expirationInterval));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickDisplayRenderer, 1L, 1L));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateTargetedVillagers, 1L, plugin.settings().lifespan().displayVisibilityCheckIntervalTicks()));
-        tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, 20L * 5L, 20L * 5L));
+        int displayRefreshInterval = plugin.settings().lifespan().displayRefreshIntervalTicks();
+        tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::updateDisplays, displayRefreshInterval, displayRefreshInterval));
         tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::cleanupOrphanDisplays, 20L * 60L * 5L, 20L * 60L * 5L));
         if (plugin.settings().lifespan().chunkLoadRefreshEnabled()) {
             tasks.add(plugin.getServer().getScheduler().runTaskTimer(plugin, this::processChunkLoadRefreshQueue, 1L, 1L));
@@ -266,23 +263,20 @@ public final class LifespanService implements Listener {
     }
 
     @EventHandler
-    public void onChunkLoad(ChunkLoadEvent event) {
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
         if (!plugin.settings().lifespan().enabled() || !plugin.isWorldAllowed(event.getWorld())) {
             return;
         }
-        Chunk chunk = event.getChunk();
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (plugin.settings().lifespan().chunkLoadRefreshEnabled()) {
-                queueChunkVillagers(chunk);
-            } else {
-                indexChunkVillagers(chunk);
-            }
-        });
+        if (plugin.settings().lifespan().chunkLoadRefreshEnabled()) {
+            queueLoadedVillagers(event.getEntities());
+        } else {
+            indexLoadedVillagers(event.getEntities());
+        }
     }
 
     @EventHandler
-    public void onChunkUnload(ChunkUnloadEvent event) {
-        for (Entity entity : event.getChunk().getEntities()) {
+    public void onEntitiesUnload(EntitiesUnloadEvent event) {
+        for (Entity entity : event.getEntities()) {
             if (entity instanceof Villager villager) {
                 cleanupDisplay(villager);
                 unregisterLoadedVillager(villager.getUniqueId());
@@ -369,12 +363,9 @@ public final class LifespanService implements Listener {
         }
     }
 
-    private void queueChunkVillagers(Chunk chunk) {
-        if (!plugin.settings().lifespan().enabled() || !plugin.settings().lifespan().chunkLoadRefreshEnabled() || !chunk.isLoaded() || !plugin.isWorldAllowed(chunk.getWorld())) {
-            return;
-        }
-        for (Entity entity : chunk.getEntities()) {
-            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+    private void queueLoadedVillagers(List<Entity> entities) {
+        for (Entity entity : entities) {
+            if (!(entity instanceof Villager villager)) {
                 continue;
             }
             UUID villagerId = villager.getUniqueId();
@@ -384,12 +375,9 @@ public final class LifespanService implements Listener {
         }
     }
 
-    private void indexChunkVillagers(Chunk chunk) {
-        if (!chunk.isLoaded() || !plugin.isWorldAllowed(chunk.getWorld())) {
-            return;
-        }
-        for (Entity entity : chunk.getEntities()) {
-            if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+    private void indexLoadedVillagers(List<Entity> entities) {
+        for (Entity entity : entities) {
+            if (!(entity instanceof Villager villager) || villager.isDead()) {
                 continue;
             }
             loadedVillagers.put(villager.getUniqueId(), villager);
@@ -583,7 +571,7 @@ public final class LifespanService implements Listener {
             villager.getVillagerLevel(),
             villager.getVillagerExperience(),
             restocksToday(villager),
-            cleanCopyRecipes(villager.getRecipes())
+            tradeRecipes.cleanCopyRecipes(villager.getRecipes())
         );
     }
 
@@ -612,45 +600,6 @@ public final class LifespanService implements Listener {
     private boolean canHaveTradeRecipes(Villager villager) {
         Villager.Profession profession = villager.getProfession();
         return profession != Villager.Profession.NONE && profession != Villager.Profession.NITWIT;
-    }
-
-    private List<MerchantRecipe> cleanCopyRecipes(List<MerchantRecipe> recipes) {
-        List<MerchantRecipe> copies = new ArrayList<>();
-        for (MerchantRecipe recipe : recipes) {
-            copies.add(copyRecipe(recipe, stripTradeGuiInfo(recipe.getResult().clone())));
-        }
-        return copies;
-    }
-
-    private MerchantRecipe copyRecipe(MerchantRecipe recipe, ItemStack result) {
-        MerchantRecipe copy = new MerchantRecipe(result, recipe.getUses(), recipe.getMaxUses(), recipe.hasExperienceReward(), recipe.getVillagerExperience(), recipe.getPriceMultiplier(), recipe.getDemand(), recipe.getSpecialPrice());
-        copy.setIngredients(recipe.getIngredients().stream().map(ItemStack::clone).toList());
-        return copy;
-    }
-
-    private ItemStack stripTradeGuiInfo(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return item;
-        }
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null) {
-            return item;
-        }
-        PersistentDataContainer container = meta.getPersistentDataContainer();
-        if (!container.has(tradeGuiMarkerKey, PersistentDataType.BYTE)) {
-            return item;
-        }
-        Integer originalLoreSize = container.get(tradeGuiLoreSizeKey, PersistentDataType.INTEGER);
-        List<String> lore = meta.getLore();
-        if (originalLoreSize == null || originalLoreSize <= 0 || lore == null) {
-            meta.setLore(null);
-        } else if (originalLoreSize < lore.size()) {
-            meta.setLore(new ArrayList<>(lore.subList(0, originalLoreSize)));
-        }
-        container.remove(tradeGuiMarkerKey);
-        container.remove(tradeGuiLoreSizeKey);
-        item.setItemMeta(meta);
-        return item;
     }
 
     private void writeTradeSnapshot(ZombieVillager zombie, TradeSnapshot snapshot) {
@@ -748,7 +697,7 @@ public final class LifespanService implements Listener {
             // Paper 1.18 does not expose restock counters.
         }
         if (!snapshot.recipes().isEmpty()) {
-            villager.setRecipes(cleanCopyRecipes(snapshot.recipes()));
+            villager.setRecipes(tradeRecipes.cleanCopyRecipes(snapshot.recipes()));
         }
     }
 
@@ -818,9 +767,36 @@ public final class LifespanService implements Listener {
                 current.add(villager.getUniqueId());
             }
         }
+        // 只刷新准星状态发生变化的村民，低寿命常显由周期性 updateDisplays 兜底。
+        Set<UUID> changed = new HashSet<>();
+        for (UUID villagerId : targetedVillagers) {
+            if (!current.contains(villagerId)) {
+                changed.add(villagerId);
+            }
+        }
+        for (UUID villagerId : current) {
+            if (!targetedVillagers.contains(villagerId)) {
+                changed.add(villagerId);
+            }
+        }
         targetedVillagers.clear();
         targetedVillagers.addAll(current);
-        updateDisplayVisibility();
+        for (UUID villagerId : changed) {
+            Villager villager = lifespanVillagers.get(villagerId);
+            if (villager == null) {
+                continue;
+            }
+            if (!villager.isValid() || villager.isDead() || !plugin.isWorldAllowed(villager.getWorld())) {
+                cleanupDisplay(villager);
+                unregisterLoadedVillager(villagerId);
+                continue;
+            }
+            if (isExcluded(villager)) {
+                clearLifespanData(villager);
+                continue;
+            }
+            refreshDisplay(villager);
+        }
     }
 
     private boolean shouldShowDisplay(Villager villager) {
@@ -837,27 +813,6 @@ public final class LifespanService implements Listener {
     private boolean isLowLifespan(Villager villager) {
         int threshold = plugin.settings().lifespan().displayLowLifespanAlwaysShowSeconds();
         return threshold > 0 && remaining(villager) <= threshold * 1000L;
-    }
-
-    private void updateDisplayVisibility() {
-        for (Villager villager : new ArrayList<>(lifespanVillagers.values())) {
-            if (!villager.isValid() || villager.isDead() || !plugin.isWorldAllowed(villager.getWorld())) {
-                cleanupDisplay(villager);
-                unregisterLoadedVillager(villager.getUniqueId());
-                continue;
-            }
-            if (isExcluded(villager)) {
-                clearLifespanData(villager);
-                continue;
-            }
-            boolean shouldShow = shouldShowDisplay(villager);
-            boolean isVisible = visibleVillagers.contains(villager.getUniqueId());
-            if (shouldShow && !isVisible) {
-                createOrUpdateDisplay(villager);
-            } else if (!shouldShow && isVisible) {
-                cleanupDisplay(villager);
-            }
-        }
     }
 
     private void cleanupWorldDisplays(org.bukkit.World world) {

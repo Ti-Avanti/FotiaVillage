@@ -3,6 +3,7 @@ package gg.fotia.fotiavillage.villager;
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import io.papermc.paper.event.entity.EntityMoveEvent;
 import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Villager;
@@ -12,8 +13,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
-import org.bukkit.event.world.ChunkLoadEvent;
-import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
+import org.bukkit.event.world.EntitiesUnloadEvent;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,15 +63,26 @@ public final class VillagerTracker implements Listener {
     }
 
     @EventHandler
-    public void onChunkLoad(ChunkLoadEvent event) {
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
         if (!plugin.isWorldAllowed(event.getWorld())) {
             return;
         }
-        scan(event.getChunk());
+        int count = 0;
+        for (Entity entity : event.getEntities()) {
+            if (entity instanceof Villager) {
+                count++;
+            }
+        }
+        ChunkKey key = new ChunkKey(event.getChunk());
+        if (count > 0) {
+            counts.put(key, count);
+        } else {
+            counts.remove(key);
+        }
     }
 
     @EventHandler
-    public void onChunkUnload(ChunkUnloadEvent event) {
+    public void onEntitiesUnload(EntitiesUnloadEvent event) {
         counts.remove(new ChunkKey(event.getChunk()));
     }
 
@@ -99,16 +111,19 @@ public final class VillagerTracker implements Listener {
         if (!(event.getEntity() instanceof Villager)) {
             return;
         }
-        Chunk from = event.getFrom().getChunk();
-        Chunk to = event.getTo().getChunk();
-        if (from.getWorld().equals(to.getWorld()) && from.getX() == to.getX() && from.getZ() == to.getZ()) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        // 先用方块坐标判断是否跨区块，避免为高频移动事件构造 Chunk 对象。
+        if (from.getWorld().equals(to.getWorld())
+            && (from.getBlockX() >> 4) == (to.getBlockX() >> 4)
+            && (from.getBlockZ() >> 4) == (to.getBlockZ() >> 4)) {
             return;
         }
         if (plugin.isWorldAllowed(from.getWorld())) {
-            decrement(from);
+            decrement(from.getChunk());
         }
         if (plugin.isWorldAllowed(to.getWorld())) {
-            increment(to);
+            increment(to.getChunk());
         }
     }
 

@@ -162,6 +162,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
     private void clear(CommandSender sender, String[] args) {
         String key = sender.getName();
         long now = System.currentTimeMillis();
+        clearConfirmations.values().removeIf(requestedAt -> now - requestedAt > 10_000L);
         if (args.length >= 3 && args[2].equalsIgnoreCase("confirm")) {
             Long requested = clearConfirmations.get(key);
             if (requested != null && now - requested <= 10_000L) {
@@ -409,10 +410,7 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
     }
 
     private Player onlinePlayer(String name) {
-        return Bukkit.getOnlinePlayers().stream()
-            .filter(player -> player.getName().equalsIgnoreCase(name))
-            .findFirst()
-            .orElse(null);
+        return Bukkit.getPlayerExact(name);
     }
 
     private Integer parsePositiveInt(String raw) {

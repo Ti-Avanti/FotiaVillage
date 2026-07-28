@@ -67,7 +67,8 @@ public final class ConfigService {
                 atLeast(config.getDouble("performance.low-tps-warning", 18.0), 0.0),
                 atLeast(config.getInt("performance.cleanup-expired-interval", 600), 0),
                 atLeast(config.getInt("performance.database-read-cache-seconds", 5), 0),
-                atLeast(config.getInt("performance.leaderboard-cache-seconds", 2), 0)
+                atLeast(config.getInt("performance.leaderboard-cache-seconds", 2), 0),
+                enumValue(FotiaSettings.DatabaseSynchronous.class, config.getString("performance.database-synchronous", "FULL"), FotiaSettings.DatabaseSynchronous.FULL)
             ),
             new FotiaSettings.WorldFilter(
                 config.getBoolean("world-filter.enabled", true),
@@ -90,7 +91,8 @@ public final class ConfigService {
                 config.getBoolean("spawn-control.block-natural-spawn", true),
                 config.getBoolean("spawn-control.allow-cure", true),
                 config.getBoolean("spawn-control.allow-spawn-egg", true),
-                config.getBoolean("spawn-control.allow-breeding", true)
+                config.getBoolean("spawn-control.allow-breeding", true),
+                atLeast(config.getInt("spawn-control.notify-range", 10), 0)
             ),
             new FotiaSettings.Lifespan(
                 config.getBoolean("villager-lifespan.enabled", true),
@@ -100,6 +102,7 @@ public final class ConfigService {
                 atLeast(config.getDouble("villager-lifespan.command-target-range", 6.0), 1.0),
                 enumValue(FotiaSettings.LifespanDisplayMode.class, config.getString("villager-lifespan.display.mode", "AUTO"), FotiaSettings.LifespanDisplayMode.AUTO),
                 config.getDouble("villager-lifespan.display.height-offset", 0.65D),
+                atLeast(config.getInt("villager-lifespan.display.refresh-interval-ticks", 100), 1),
                 enumValue(FotiaSettings.LifespanDisplayVisibilityMode.class, config.getString("villager-lifespan.display.visibility.mode", "ALWAYS"), FotiaSettings.LifespanDisplayVisibilityMode.ALWAYS),
                 atLeast(config.getDouble("villager-lifespan.display.visibility.look-at-range", 16.0), 1.0),
                 atLeast(config.getInt("villager-lifespan.display.visibility.check-interval-ticks", 5), 1),

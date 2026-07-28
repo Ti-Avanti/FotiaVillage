@@ -151,7 +151,7 @@ public final class VillagerControlListener implements Listener {
     }
 
     private void notifyNearby(Location location, String key) {
-        notifyNearby(location, key, Map.of(), 10);
+        notifyNearby(location, key, Map.of(), plugin.settings().spawnControl().notifyRange());
     }
 
     private void notifyNearby(Location location, String key, Map<String, ?> replacements, int range) {

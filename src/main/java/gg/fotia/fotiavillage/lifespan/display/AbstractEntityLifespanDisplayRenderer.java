@@ -29,9 +29,13 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
         Entity display = displays.get(villagerId);
         boolean created = false;
         if (display == null || !display.isValid() || !isDisplayEntity(display)) {
-            cleanup(villager);
-            display = createDisplay(villager);
-            created = true;
+            displays.remove(villagerId);
+            renderedTexts.remove(villagerId);
+            display = findExistingDisplay(villager);
+            if (display == null) {
+                display = createDisplay(villager);
+                created = true;
+            }
             display.setPersistent(false);
             display.setSilent(true);
             display.setInvulnerable(true);
@@ -59,12 +63,13 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
             removeEntity(id);
             villager.getPersistentDataContainer().remove(displayIdKey);
         }
+        removeOwnedDisplays(villager, null);
     }
 
     @Override
     public final void cleanupOrphans() {
         for (var world : plugin.getServer().getWorlds()) {
-            for (Entity display : world.getEntities()) {
+            for (Entity display : world.getEntitiesByClass(displayEntityClass())) {
                 String owner = display.getPersistentDataContainer().get(displayOwnerKey, PersistentDataType.STRING);
                 if (owner == null) {
                     continue;
@@ -87,7 +92,7 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
         displays.clear();
         renderedTexts.clear();
         for (var world : plugin.getServer().getWorlds()) {
-            for (Entity display : world.getEntities()) {
+            for (Entity display : world.getEntitiesByClass(displayEntityClass())) {
                 if (display.getPersistentDataContainer().has(displayOwnerKey, PersistentDataType.STRING)) {
                     display.remove();
                 }
@@ -95,7 +100,11 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
         }
     }
 
-    protected abstract boolean isDisplayEntity(Entity entity);
+    protected abstract Class<? extends Entity> displayEntityClass();
+
+    private boolean isDisplayEntity(Entity entity) {
+        return displayEntityClass().isInstance(entity);
+    }
 
     protected abstract Entity createDisplay(Villager villager);
 
@@ -112,5 +121,55 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
             }
         } catch (IllegalArgumentException ignored) {
         }
+    }
+
+    private Entity findExistingDisplay(Villager villager) {
+        Entity selected = findStoredDisplay(villager);
+        return removeOwnedDisplays(villager, selected);
+    }
+
+    private Entity findStoredDisplay(Villager villager) {
+        String id = villager.getPersistentDataContainer().get(displayIdKey, PersistentDataType.STRING);
+        if (id == null) {
+            return null;
+        }
+        try {
+            Entity entity = plugin.getServer().getEntity(UUID.fromString(id));
+            if (isUsableOwnedDisplay(villager, entity)) {
+                return entity;
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        villager.getPersistentDataContainer().remove(displayIdKey);
+        return null;
+    }
+
+    private Entity removeOwnedDisplays(Villager villager, Entity selected) {
+        String ownerId = villager.getUniqueId().toString();
+        for (Entity candidate : villager.getChunk().getEntities()) {
+            if (!isDisplayEntity(candidate) || !candidate.isValid()) {
+                continue;
+            }
+            String owner = candidate.getPersistentDataContainer().get(displayOwnerKey, PersistentDataType.STRING);
+            if (!ownerId.equals(owner)) {
+                continue;
+            }
+            if (selected == null) {
+                selected = candidate;
+                continue;
+            }
+            if (!selected.getUniqueId().equals(candidate.getUniqueId())) {
+                candidate.remove();
+            }
+        }
+        return selected;
+    }
+
+    private boolean isUsableOwnedDisplay(Villager villager, Entity entity) {
+        if (entity == null || !entity.isValid() || !isDisplayEntity(entity) || !entity.getWorld().equals(villager.getWorld())) {
+            return false;
+        }
+        String owner = entity.getPersistentDataContainer().get(displayOwnerKey, PersistentDataType.STRING);
+        return villager.getUniqueId().toString().equals(owner);
     }
 }

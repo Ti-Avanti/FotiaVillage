@@ -25,8 +25,8 @@ public final class TextDisplayLifespanDisplayRenderer extends AbstractEntityLife
     }
 
     @Override
-    protected boolean isDisplayEntity(Entity entity) {
-        return entity instanceof TextDisplay;
+    protected Class<? extends Entity> displayEntityClass() {
+        return TextDisplay.class;
     }
 
     @Override

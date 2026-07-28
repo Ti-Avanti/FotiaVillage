@@ -35,6 +35,8 @@ performance:
   database-read-cache-seconds: 5
   # 排行榜查询缓存（秒，0 表示关闭）
   leaderboard-cache-seconds: 2
+  # SQLite 写入同步模式：FULL 更安全；NORMAL 写入更快，但断电时可能丢失最近事务
+  database-synchronous: FULL
 
 # 世界过滤设置
 world-filter:
@@ -80,6 +82,8 @@ spawn-control:
   allow-spawn-egg: true
   # 是否允许村民繁殖
   allow-breeding: true
+  # 生成/数量限制拦截提示的通知范围（格，0 表示通知全服）
+  notify-range: 10
 
 # 村民寿命设置
 villager-lifespan:
@@ -102,6 +106,8 @@ villager-lifespan:
     mode: AUTO
     # 村民头顶寿命 tag 高度偏移，数值越大越高
     height-offset: 0.65
+    # 寿命文本和低寿命常显状态的刷新间隔（tick）
+    refresh-interval-ticks: 100
     # 村民头顶寿命 tag 显示条件
     visibility:
       # ALWAYS：一直显示

@@ -12,8 +12,11 @@ final class LifespanExpiryQueue {
     private final PriorityQueue<ExpiryEntry> queue = new PriorityQueue<>((left, right) -> Long.compare(left.deadline(), right.deadline()));
 
     void track(UUID villagerId, long deadline) {
-        deadlines.put(villagerId, deadline);
-        queue.add(new ExpiryEntry(villagerId, deadline));
+        Long previous = deadlines.put(villagerId, deadline);
+        // deadline 未变化时无需重复入队，避免区块反复加载导致队列条目无限增长。
+        if (previous == null || previous.longValue() != deadline) {
+            queue.add(new ExpiryEntry(villagerId, deadline));
+        }
     }
 
     void untrack(UUID villagerId) {

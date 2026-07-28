@@ -21,10 +21,10 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 
 | 项目 | 要求 |
 | --- | --- |
-| 服务端 | Paper `1.21.x` |
-| Java | `21` |
+| 服务端 | Paper `1.18.x` - `1.21.x` |
+| Java | `17` 及以上（随服务端版本要求） |
 | 构建工具 | Maven |
-| 可选依赖 | PlaceholderAPI |
+| 可选依赖 | PlaceholderAPI、Shopkeepers、Citizens、DecentHolograms、CustomNameplates |
 | 数据库 | SQLite，数据文件为 `plugins/FotiaVillage/data.db` |
 
 ## 安装

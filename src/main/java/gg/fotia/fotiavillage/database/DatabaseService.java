@@ -46,6 +46,7 @@ public final class DatabaseService {
             connection = DriverManager.getConnection("jdbc:sqlite:" + file.getAbsolutePath());
             execute("PRAGMA foreign_keys = ON");
             execute("PRAGMA journal_mode = WAL");
+            applySynchronousMode();
             execute("PRAGMA busy_timeout = 5000");
             createSchema();
         } catch (Exception ex) {
@@ -69,6 +70,17 @@ public final class DatabaseService {
 
     public synchronized void clearReadCaches() {
         clearCaches();
+    }
+
+    public synchronized void applyRuntimeSettings() {
+        if (!isConnected()) {
+            return;
+        }
+        try {
+            applySynchronousMode();
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Unable to apply database runtime settings", ex);
+        }
     }
 
     public synchronized boolean isConnected() {
@@ -128,6 +140,10 @@ public final class DatabaseService {
         try (Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
+    }
+
+    private void applySynchronousMode() throws SQLException {
+        execute("PRAGMA synchronous = " + plugin.settings().performance().databaseSynchronous().name());
     }
 
     private void rollbackQuietly(Throwable cause) {

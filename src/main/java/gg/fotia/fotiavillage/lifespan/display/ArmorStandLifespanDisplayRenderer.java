@@ -21,8 +21,8 @@ public final class ArmorStandLifespanDisplayRenderer extends AbstractEntityLifes
     }
 
     @Override
-    protected boolean isDisplayEntity(Entity entity) {
-        return entity instanceof ArmorStand;
+    protected Class<? extends Entity> displayEntityClass() {
+        return ArmorStand.class;
     }
 
     @Override

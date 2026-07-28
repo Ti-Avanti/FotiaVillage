@@ -23,7 +23,8 @@ public record FotiaSettings(
     public record Gui(boolean enabled) {}
     public record Placeholder(boolean enabled) {}
     public record UpdateChecker(boolean enabled) {}
-    public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval, int databaseReadCacheSeconds, int leaderboardCacheSeconds) {}
+    public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval, int databaseReadCacheSeconds, int leaderboardCacheSeconds, DatabaseSynchronous databaseSynchronous) {}
+    public enum DatabaseSynchronous { FULL, NORMAL }
     public record WorldFilter(boolean enabled, Set<String> whitelist, Set<String> blacklist) {
         public boolean isAllowed(String worldName) {
             if (!enabled || worldName == null || worldName.isBlank()) {
@@ -38,8 +39,8 @@ public record FotiaSettings(
     }
     public record Compatibility(boolean excludeShopkeepersFromLifespan, boolean excludeCitizensFromLifespan, boolean excludeGenericNpcMetadataFromLifespan, String genericNpcMetadataKey) {}
     public record VillagerLimit(boolean enabled, int chunkRadius, int maxVillagers) {}
-    public record SpawnControl(boolean enabled, boolean blockNaturalSpawn, boolean allowCure, boolean allowSpawnEgg, boolean allowBreeding) {}
-    public record Lifespan(boolean enabled, int days, boolean notifyEnabled, int notifyRange, double commandTargetRange, LifespanDisplayMode displayMode, double displayHeightOffset, LifespanDisplayVisibilityMode displayVisibilityMode, double displayLookAtRange, int displayVisibilityCheckIntervalTicks, int displayLowLifespanAlwaysShowSeconds, boolean decentHologramsEnabled, boolean customNameplatesEnabled, String customNameplatesNameplateId, boolean zombifyOnExpire, int expirationCheckIntervalTicks, int expirationMaxVillagersPerCheck, boolean autoAddEnabled, int autoAddCheckInterval, boolean autoAddCheckOnStartup, boolean chunkLoadRefreshEnabled, boolean chunkLoadRefreshAutoAddMissing, int chunkLoadRefreshMaxVillagersPerTick) {}
+    public record SpawnControl(boolean enabled, boolean blockNaturalSpawn, boolean allowCure, boolean allowSpawnEgg, boolean allowBreeding, int notifyRange) {}
+    public record Lifespan(boolean enabled, int days, boolean notifyEnabled, int notifyRange, double commandTargetRange, LifespanDisplayMode displayMode, double displayHeightOffset, int displayRefreshIntervalTicks, LifespanDisplayVisibilityMode displayVisibilityMode, double displayLookAtRange, int displayVisibilityCheckIntervalTicks, int displayLowLifespanAlwaysShowSeconds, boolean decentHologramsEnabled, boolean customNameplatesEnabled, String customNameplatesNameplateId, boolean zombifyOnExpire, int expirationCheckIntervalTicks, int expirationMaxVillagersPerCheck, boolean autoAddEnabled, int autoAddCheckInterval, boolean autoAddCheckOnStartup, boolean chunkLoadRefreshEnabled, boolean chunkLoadRefreshAutoAddMissing, int chunkLoadRefreshMaxVillagersPerTick) {}
     public enum LifespanDisplayMode { AUTO, ARMOR_STAND, TEXT_DISPLAY, DECENT_HOLOGRAMS }
     public enum LifespanDisplayVisibilityMode { ALWAYS, LOOK_AT, LOOK_AT_OR_LOW_LIFESPAN }
     public record TradeControl(boolean enabled, boolean disableTrading, ExpCost expCost, CostScaling costScaling, Cooldown cooldown, Limit limit, boolean permissionGroupsEnabled, List<PermissionGroup> permissionGroups, EconomyBalance economyBalance, Statistics statistics, TradeGuiDisplay guiDisplay) {}

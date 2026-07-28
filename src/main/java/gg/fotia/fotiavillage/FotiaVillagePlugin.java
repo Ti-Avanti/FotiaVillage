@@ -43,6 +43,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
     private CostScalingService costScalingService;
     private StatsService statsService;
     private GuiService guiService;
+    private TradeService tradeService;
     private UpdateCheckService updateCheckService;
     private FotiaPlaceholderExpansion placeholderExpansion;
 
@@ -81,6 +82,8 @@ public final class FotiaVillagePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (guiService != null) guiService.closeAll();
+        if (tradeService != null) tradeService.resetSessions();
         if (lifespanService != null) lifespanService.stop();
         if (performanceService != null) performanceService.stop();
         if (placeholderExpansion != null) placeholderExpansion.unregister();
@@ -89,7 +92,10 @@ public final class FotiaVillagePlugin extends JavaPlugin {
     }
 
     public void reloadRuntime() {
+        if (guiService != null) guiService.closeAll();
+        if (tradeService != null) tradeService.resetSessions();
         configService.load();
+        databaseService.applyRuntimeSettings();
         databaseService.clearReadCaches();
         lifespanItemService.load();
         languageService.load();
@@ -162,7 +168,8 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(lifespanService, this);
         getServer().getPluginManager().registerEvents(new LifespanDeathListener(this), this);
         getServer().getPluginManager().registerEvents(new LifespanItemListener(this), this);
-        getServer().getPluginManager().registerEvents(new TradeService(this, permissionGroupService, economyBalanceService, tradeLimitService, cooldownService, costScalingService), this);
+        tradeService = new TradeService(this, permissionGroupService, economyBalanceService, tradeLimitService, cooldownService, costScalingService);
+        getServer().getPluginManager().registerEvents(tradeService, this);
         getServer().getPluginManager().registerEvents(guiService, this);
     }
 

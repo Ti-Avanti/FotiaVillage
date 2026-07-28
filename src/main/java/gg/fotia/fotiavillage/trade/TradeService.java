@@ -4,9 +4,9 @@ import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import gg.fotia.fotiavillage.util.ExperienceUtil;
 import gg.fotia.fotiavillage.util.TimeUtil;
+import gg.fotia.fotiavillage.util.TradeRecipeUtil;
 import io.papermc.paper.event.player.PlayerTradeEvent;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -24,8 +24,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,9 +44,8 @@ public final class TradeService implements Listener {
     private final TradeLimitService limits;
     private final CooldownService cooldowns;
     private final CostScalingService scaling;
-    private final NamespacedKey tradeGuiMarkerKey;
-    private final NamespacedKey tradeGuiLoreSizeKey;
-    private final Map<UUID, TradeGuiSession> tradeGuiSessions = new HashMap<>();
+    private final TradeRecipeUtil tradeRecipes;
+    private final Map<UUID, Villager> tradeGuiSessions = new HashMap<>();
     private final Map<UUID, List<TradeClickAllowance>> tradeClickAllowances = new HashMap<>();
     private final Set<UUID> pendingTradeDisplayCleanup = new HashSet<>();
 
@@ -59,8 +56,7 @@ public final class TradeService implements Listener {
         this.limits = limits;
         this.cooldowns = cooldowns;
         this.scaling = scaling;
-        this.tradeGuiMarkerKey = new NamespacedKey(plugin, "trade_gui_display");
-        this.tradeGuiLoreSizeKey = new NamespacedKey(plugin, "trade_gui_lore_size");
+        this.tradeRecipes = new TradeRecipeUtil(plugin);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -581,39 +577,37 @@ public final class TradeService implements Listener {
         }
         restoreTradeGui(player.getUniqueId());
         primeTradeState(player, plugin.settings().tradeControl());
-        List<MerchantRecipe> originalRecipes = cleanCopyRecipes(villager.getRecipes());
+        List<MerchantRecipe> originalRecipes = tradeRecipes.cleanCopyRecipes(villager.getRecipes());
         List<MerchantRecipe> decoratedRecipes = new ArrayList<>();
         String profession = profession(villager);
         for (MerchantRecipe recipe : originalRecipes) {
             decoratedRecipes.add(decorateRecipe(player, profession, recipe));
         }
-        tradeGuiSessions.put(player.getUniqueId(), new TradeGuiSession(villager, originalRecipes));
+        tradeGuiSessions.put(player.getUniqueId(), villager);
         villager.setRecipes(decoratedRecipes);
         player.updateInventory();
     }
 
     private MerchantRecipe decorateRecipe(Player player, String profession, MerchantRecipe recipe) {
-        ItemStack result = stripTradeGuiInfo(recipe.getResult().clone());
+        ItemStack result = tradeRecipes.stripTradeGuiInfo(recipe.getResult().clone());
         if (result.getType().isAir()) {
-            return copyRecipe(recipe, result);
+            return tradeRecipes.copyRecipe(recipe, result);
         }
         List<String> info = tradeInfoLore(player, profession, recipe);
         if (info.isEmpty()) {
-            return copyRecipe(recipe, result);
+            return tradeRecipes.copyRecipe(recipe, result);
         }
         ItemMeta meta = result.getItemMeta();
         if (meta == null) {
-            return copyRecipe(recipe, result);
+            return tradeRecipes.copyRecipe(recipe, result);
         }
         List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         int originalLoreSize = lore.size();
         lore.addAll(info);
-        PersistentDataContainer container = meta.getPersistentDataContainer();
-        container.set(tradeGuiMarkerKey, PersistentDataType.BYTE, (byte) 1);
-        container.set(tradeGuiLoreSizeKey, PersistentDataType.INTEGER, originalLoreSize);
+        tradeRecipes.markResult(meta, originalLoreSize);
         meta.setLore(lore);
         result.setItemMeta(meta);
-        return copyRecipe(recipe, result);
+        return tradeRecipes.copyRecipe(recipe, result);
     }
 
     private List<String> tradeInfoLore(Player player, String profession, MerchantRecipe recipe) {
@@ -623,7 +617,7 @@ public final class TradeService implements Listener {
             return List.of();
         }
         List<String> lines = new ArrayList<>();
-        ItemStack result = stripTradeGuiInfo(recipe.getResult().clone());
+        ItemStack result = tradeRecipes.stripTradeGuiInfo(recipe.getResult().clone());
         String itemType = result.getType().name();
         if (!trade.enabled()) {
             lines.add(plugin.language().legacy("trade-gui.disabled", Map.of()));
@@ -706,23 +700,36 @@ public final class TradeService implements Listener {
     }
 
     private List<MerchantRecipe> cleanCopyRecipes(List<MerchantRecipe> recipes) {
-        List<MerchantRecipe> copies = new ArrayList<>();
-        for (MerchantRecipe recipe : recipes) {
-            copies.add(copyRecipe(recipe, stripTradeGuiInfo(recipe.getResult().clone())));
-        }
-        return copies;
+        return tradeRecipes.cleanCopyRecipes(recipes);
     }
 
-    private MerchantRecipe copyRecipe(MerchantRecipe recipe, ItemStack result) {
-        MerchantRecipe copy = new MerchantRecipe(result, recipe.getUses(), recipe.getMaxUses(), recipe.hasExperienceReward(), recipe.getVillagerExperience(), recipe.getPriceMultiplier(), recipe.getDemand(), recipe.getSpecialPrice());
-        copy.setIngredients(recipe.getIngredients().stream().map(ItemStack::clone).toList());
-        return copy;
+    public void resetSessions() {
+        Set<UUID> affectedPlayers = new HashSet<>(tradeGuiSessions.keySet());
+        affectedPlayers.addAll(pendingTradeDisplayCleanup);
+        for (UUID playerId : List.copyOf(tradeGuiSessions.keySet())) {
+            Player player = plugin.getServer().getPlayer(playerId);
+            if (player != null && player.getOpenInventory().getTopInventory() instanceof MerchantInventory) {
+                player.closeInventory();
+            }
+        }
+        for (UUID playerId : List.copyOf(tradeGuiSessions.keySet())) {
+            restoreTradeGui(playerId);
+        }
+        tradeClickAllowances.clear();
+        pendingTradeDisplayCleanup.clear();
+        for (UUID playerId : affectedPlayers) {
+            Player player = plugin.getServer().getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                stripTradeDisplayNow(player);
+            }
+        }
     }
 
     private void restoreTradeGui(UUID playerId) {
-        TradeGuiSession session = tradeGuiSessions.remove(playerId);
-        if (session != null && session.merchant().isValid() && !session.merchant().isDead()) {
-            session.merchant().setRecipes(cleanCopyRecipes(session.originalRecipes()));
+        Villager merchant = tradeGuiSessions.remove(playerId);
+        if (merchant != null && merchant.isValid() && !merchant.isDead()) {
+            // 基于当前配方剥离 GUI 附加信息，保留本次交易产生的 uses/demand 变化。
+            merchant.setRecipes(cleanCopyRecipes(merchant.getRecipes()));
         }
     }
 
@@ -730,10 +737,14 @@ public final class TradeService implements Listener {
         if (left == null || right == null) {
             return left == right;
         }
-        return stripTradeGuiInfo(left.clone()).isSimilar(stripTradeGuiInfo(right.clone()));
+        return tradeRecipes.stripTradeGuiInfo(left.clone()).isSimilar(tradeRecipes.stripTradeGuiInfo(right.clone()));
     }
 
     private void stripTradeDisplayNextTick(Player player) {
+        if (!plugin.isEnabled()) {
+            stripTradeDisplayNow(player);
+            return;
+        }
         UUID playerId = player.getUniqueId();
         if (!pendingTradeDisplayCleanup.add(playerId)) {
             return;
@@ -743,57 +754,28 @@ public final class TradeService implements Listener {
             if (!player.isOnline()) {
                 return;
             }
-            boolean changed = false;
-            ItemStack cursor = player.getItemOnCursor();
-            if (hasTradeGuiInfo(cursor)) {
-                player.setItemOnCursor(stripTradeGuiInfo(cursor));
-                changed = true;
-            }
-            PlayerInventory inventory = player.getInventory();
-            for (int slot = 0; slot < inventory.getSize(); slot++) {
-                ItemStack item = inventory.getItem(slot);
-                if (hasTradeGuiInfo(item)) {
-                    inventory.setItem(slot, stripTradeGuiInfo(item));
-                    changed = true;
-                }
-            }
-            if (changed) {
-                player.updateInventory();
-            }
+            stripTradeDisplayNow(player);
         });
     }
 
-    private boolean hasTradeGuiInfo(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return false;
+    private void stripTradeDisplayNow(Player player) {
+        boolean changed = false;
+        ItemStack cursor = player.getItemOnCursor();
+        if (tradeRecipes.hasTradeGuiInfo(cursor)) {
+            player.setItemOnCursor(tradeRecipes.stripTradeGuiInfo(cursor));
+            changed = true;
         }
-        ItemMeta meta = item.getItemMeta();
-        return meta != null && meta.getPersistentDataContainer().has(tradeGuiMarkerKey, PersistentDataType.BYTE);
-    }
-
-    private ItemStack stripTradeGuiInfo(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return item;
+        PlayerInventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack item = inventory.getItem(slot);
+            if (tradeRecipes.hasTradeGuiInfo(item)) {
+                inventory.setItem(slot, tradeRecipes.stripTradeGuiInfo(item));
+                changed = true;
+            }
         }
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null) {
-            return item;
+        if (changed) {
+            player.updateInventory();
         }
-        PersistentDataContainer container = meta.getPersistentDataContainer();
-        if (!container.has(tradeGuiMarkerKey, PersistentDataType.BYTE)) {
-            return item;
-        }
-        Integer originalLoreSize = container.get(tradeGuiLoreSizeKey, PersistentDataType.INTEGER);
-        List<String> lore = meta.getLore();
-        if (originalLoreSize == null || originalLoreSize <= 0 || lore == null) {
-            meta.setLore(null);
-        } else if (originalLoreSize < lore.size()) {
-            meta.setLore(new ArrayList<>(lore.subList(0, originalLoreSize)));
-        }
-        container.remove(tradeGuiMarkerKey);
-        container.remove(tradeGuiLoreSizeKey);
-        item.setItemMeta(meta);
-        return item;
     }
 
     private String profession(AbstractVillager abstractVillager) {
@@ -823,8 +805,6 @@ public final class TradeService implements Listener {
             return new TradeDecision(false, messageKey, replacements, 0, 0, "trade.insufficient-emerald".equals(messageKey));
         }
     }
-
-    private record TradeGuiSession(Villager merchant, List<MerchantRecipe> originalRecipes) {}
 
     private record TradeSignature(String merchantKey, ItemStack result, List<ItemStack> ingredients) {}
 

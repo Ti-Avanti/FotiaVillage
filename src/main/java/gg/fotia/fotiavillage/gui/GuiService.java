@@ -8,6 +8,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,6 +26,16 @@ public final class GuiService implements Listener {
         }
         player.openInventory(gui.create());
         open.put(player.getUniqueId(), gui);
+    }
+
+    public void closeAll() {
+        for (UUID viewerId : List.copyOf(open.keySet())) {
+            Player player = plugin.getServer().getPlayer(viewerId);
+            if (player != null) {
+                player.closeInventory();
+            }
+        }
+        open.clear();
     }
 
     @EventHandler
