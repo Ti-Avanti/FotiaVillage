@@ -23,7 +23,10 @@ public record FotiaSettings(
     public record Gui(boolean enabled) {}
     public record Placeholder(boolean enabled) {}
     public record UpdateChecker(boolean enabled) {}
-    public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval, int databaseReadCacheSeconds, int leaderboardCacheSeconds, DatabaseSynchronous databaseSynchronous) {}
+    public record Performance(boolean autoReport, int reportInterval, double lowTpsWarning, int cleanupExpiredInterval,
+                              int databaseReadCacheSeconds, int leaderboardCacheSeconds, DatabaseSynchronous databaseSynchronous,
+                              int databaseQueueCapacity, int databaseRetryIntervalSeconds, int databaseShutdownTimeoutSeconds,
+                              int databaseCacheMaxEntries, int databaseCacheCleanupIntervalSeconds) {}
     public enum DatabaseSynchronous { FULL, NORMAL }
     public record WorldFilter(boolean enabled, Set<String> whitelist, Set<String> blacklist) {
         public boolean isAllowed(String worldName) {

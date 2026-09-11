@@ -18,6 +18,8 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Merchant;
 import org.bukkit.inventory.MerchantInventory;
 import org.bukkit.inventory.ItemStack;
@@ -36,8 +38,6 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 public final class TradeService implements Listener {
-    private static final long TRADE_CLICK_FORGET_DELAY_TICKS = 5L;
-
     private final FotiaVillagePlugin plugin;
     private final PermissionGroupService groups;
     private final EconomyBalanceService economy;
@@ -46,7 +46,7 @@ public final class TradeService implements Listener {
     private final CostScalingService scaling;
     private final TradeRecipeUtil tradeRecipes;
     private final Map<UUID, Villager> tradeGuiSessions = new HashMap<>();
-    private final Map<UUID, List<TradeClickAllowance>> tradeClickAllowances = new HashMap<>();
+    private final TradeClickTracker clickTracker;
     private final Set<UUID> pendingTradeDisplayCleanup = new HashSet<>();
 
     public TradeService(FotiaVillagePlugin plugin, PermissionGroupService groups, EconomyBalanceService economy, TradeLimitService limits, CooldownService cooldowns, CostScalingService scaling) {
@@ -57,6 +57,7 @@ public final class TradeService implements Listener {
         this.cooldowns = cooldowns;
         this.scaling = scaling;
         this.tradeRecipes = new TradeRecipeUtil(plugin);
+        this.clickTracker = new TradeClickTracker(plugin, tradeRecipes);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -76,7 +77,13 @@ public final class TradeService implements Listener {
         if (!plugin.isWorldAllowed(villager.getWorld())) {
             return;
         }
-        if (!plugin.settings().tradeControl().guiDisplay().enabled() || plugin.compatibility().isShopkeeper(villager)) {
+        FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
+        if (trade.enabled() && !primeTradeState(player, trade)) {
+            event.setCancelled(true);
+            sendDecisionMessage(player, databaseNotReady());
+            return;
+        }
+        if (!trade.guiDisplay().enabled() || plugin.compatibility().isShopkeeper(villager)) {
             return;
         }
         decorateOpenMerchant(player, villager);
@@ -85,10 +92,27 @@ public final class TradeService implements Listener {
     @EventHandler
     public void onMerchantClose(InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player) {
+            if (!(event.getInventory() instanceof MerchantInventory) && !tradeGuiSessions.containsKey(player.getUniqueId())) {
+                return;
+            }
             restoreTradeGui(player.getUniqueId());
-            tradeClickAllowances.remove(player.getUniqueId());
+            clickTracker.forgetPlayer(player.getUniqueId());
             stripTradeDisplayNextTick(player);
         }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        plugin.database().preload(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        restoreTradeGui(playerId);
+        clickTracker.forgetPlayer(playerId);
+        pendingTradeDisplayCleanup.remove(playerId);
+        plugin.database().forgetPlayer(playerId);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -112,12 +136,12 @@ public final class TradeService implements Listener {
         Merchant merchant = inventory.getMerchant();
         FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
         if (!trade.enabled()) {
-            rememberTradeClickAllowance(player, merchant, recipe, inventory, event);
+            clickTracker.remember(player, merchant, recipe, inventory, event);
             return;
         }
         TradeDecision decision = evaluate(player, recipe, profession(merchant));
         if (decision.allowed()) {
-            rememberTradeClickAllowance(player, merchant, recipe, inventory, event);
+            clickTracker.remember(player, merchant, recipe, inventory, event);
             return;
         }
         ItemStack cursor = event.getCursor() == null ? new ItemStack(Material.AIR) : event.getCursor().clone();
@@ -149,7 +173,9 @@ public final class TradeService implements Listener {
         if (recipe == null || recipe.getResult().getType().isAir() || !isTradeResultAction(event, recipe)) {
             return;
         }
-        if (!consumeTradeClickAllowance(player, merchant, recipe)) {
+        if (!clickTracker.consume(player, merchant, recipe)) {
+            event.setCancelled(true);
+            event.setResult(Event.Result.DENY);
             return;
         }
 
@@ -207,7 +233,8 @@ public final class TradeService implements Listener {
         FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
         String itemType = result.getType().name();
         String profession = profession(event.getVillager());
-        if (!consumeTradeClickAllowance(player, event.getVillager(), recipe)) {
+        if (!clickTracker.consume(player, event.getVillager(), recipe)) {
+            event.setCancelled(true);
             return;
         }
 
@@ -256,163 +283,6 @@ public final class TradeService implements Listener {
 
     private boolean isShopkeeperMerchant(Merchant merchant) {
         return merchant instanceof AbstractVillager abstractVillager && plugin.compatibility().isShopkeeper(abstractVillager);
-    }
-
-    private void rememberTradeClickAllowance(Player player, Merchant merchant, MerchantRecipe recipe, MerchantInventory inventory, InventoryClickEvent event) {
-        UUID playerId = player.getUniqueId();
-        TradeClickAllowance allowance = new TradeClickAllowance(signature(merchant, recipe), allowedTradeCommits(inventory, recipe, event));
-        tradeClickAllowances.computeIfAbsent(playerId, ignored -> new ArrayList<>()).add(allowance);
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> forgetTradeClickAllowance(playerId, allowance), TRADE_CLICK_FORGET_DELAY_TICKS);
-    }
-
-    private void forgetTradeClickAllowance(UUID playerId, TradeClickAllowance allowance) {
-        List<TradeClickAllowance> allowances = tradeClickAllowances.get(playerId);
-        if (allowances == null) {
-            return;
-        }
-        allowances.remove(allowance);
-        if (allowances.isEmpty()) {
-            tradeClickAllowances.remove(playerId);
-        }
-    }
-
-    private boolean consumeTradeClickAllowance(Player player, Merchant merchant, MerchantRecipe recipe) {
-        List<TradeClickAllowance> allowances = tradeClickAllowances.get(player.getUniqueId());
-        if (allowances == null || allowances.isEmpty()) {
-            return true;
-        }
-        TradeSignature signature = signature(merchant, recipe);
-        boolean exhaustedMatch = false;
-        for (TradeClickAllowance allowance : allowances) {
-            if (!sameTradeSignature(allowance.signature(), signature)) {
-                continue;
-            }
-            if (allowance.remaining() > 0) {
-                allowance.consume();
-                return true;
-            }
-            exhaustedMatch = true;
-        }
-        return !exhaustedMatch;
-    }
-
-    private String merchantKey(Merchant merchant) {
-        if (merchant instanceof AbstractVillager abstractVillager) {
-            return "entity:" + abstractVillager.getUniqueId();
-        }
-        return "merchant:" + System.identityHashCode(merchant);
-    }
-
-    private int allowedTradeCommits(MerchantInventory inventory, MerchantRecipe recipe, InventoryClickEvent event) {
-        if (!event.isShiftClick() && event.getAction() != InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-            return 1;
-        }
-        return Math.max(1, possibleTradeCount(inventory, recipe));
-    }
-
-    private int possibleTradeCount(MerchantInventory inventory, MerchantRecipe recipe) {
-        int remainingUses = recipe.getMaxUses() > 0 ? recipe.getMaxUses() - recipe.getUses() : Integer.MAX_VALUE;
-        if (remainingUses <= 0) {
-            return 0;
-        }
-        List<IngredientRequirement> requirements = ingredientRequirements(recipe);
-        if (requirements.isEmpty()) {
-            return 1;
-        }
-        int possible = remainingUses;
-        for (IngredientRequirement requirement : requirements) {
-            possible = Math.min(possible, availableIngredientAmount(inventory, requirement.item()) / requirement.amount());
-        }
-        return Math.max(0, possible);
-    }
-
-    private List<IngredientRequirement> ingredientRequirements(MerchantRecipe recipe) {
-        List<IngredientRequirement> requirements = new ArrayList<>();
-        for (ItemStack ingredient : recipe.getIngredients()) {
-            if (ingredient == null || ingredient.getType().isAir() || ingredient.getAmount() <= 0) {
-                continue;
-            }
-            int existingIndex = -1;
-            for (int index = 0; index < requirements.size(); index++) {
-                if (sameItemKind(requirements.get(index).item(), ingredient)) {
-                    existingIndex = index;
-                    break;
-                }
-            }
-            if (existingIndex >= 0) {
-                IngredientRequirement existing = requirements.get(existingIndex);
-                requirements.set(existingIndex, new IngredientRequirement(existing.item(), existing.amount() + ingredient.getAmount()));
-            } else {
-                requirements.add(new IngredientRequirement(ingredient.clone(), ingredient.getAmount()));
-            }
-        }
-        return requirements;
-    }
-
-    private int availableIngredientAmount(MerchantInventory inventory, ItemStack ingredient) {
-        return availableIngredientAmount(inventory.getItem(0), ingredient) + availableIngredientAmount(inventory.getItem(1), ingredient);
-    }
-
-    private int availableIngredientAmount(ItemStack item, ItemStack ingredient) {
-        if (item == null || item.getType().isAir() || !sameItemKind(item, ingredient)) {
-            return 0;
-        }
-        return item.getAmount();
-    }
-
-    private TradeSignature signature(Merchant merchant, MerchantRecipe recipe) {
-        return new TradeSignature(merchantKey(merchant), recipe.getResult().clone(), ingredientKinds(recipe));
-    }
-
-    private List<ItemStack> ingredientKinds(MerchantRecipe recipe) {
-        List<ItemStack> ingredients = new ArrayList<>();
-        for (ItemStack ingredient : recipe.getIngredients()) {
-            if (ingredient != null && !ingredient.getType().isAir()) {
-                ingredients.add(ingredient.clone());
-            }
-        }
-        return ingredients;
-    }
-
-    private boolean sameTradeSignature(TradeSignature left, TradeSignature right) {
-        return sameMerchantKey(left.merchantKey(), right.merchantKey())
-            && sameItemKind(left.result(), right.result())
-            && sameIngredientKinds(left.ingredients(), right.ingredients());
-    }
-
-    private boolean sameMerchantKey(String left, String right) {
-        return left.equals(right) || left.startsWith("merchant:") || right.startsWith("merchant:");
-    }
-
-    private boolean sameIngredientKinds(List<ItemStack> left, List<ItemStack> right) {
-        if (left.size() != right.size()) {
-            return false;
-        }
-        List<ItemStack> unmatched = new ArrayList<>(right);
-        for (ItemStack expected : left) {
-            int matchedIndex = -1;
-            for (int index = 0; index < unmatched.size(); index++) {
-                if (sameItemKind(expected, unmatched.get(index))) {
-                    matchedIndex = index;
-                    break;
-                }
-            }
-            if (matchedIndex < 0) {
-                return false;
-            }
-            unmatched.remove(matchedIndex);
-        }
-        return true;
-    }
-
-    private boolean sameItemKind(ItemStack left, ItemStack right) {
-        if (left == null || left.getType().isAir()) {
-            return right == null || right.getType().isAir();
-        }
-        if (right == null || right.getType().isAir()) {
-            return false;
-        }
-        return strippedSimilar(left, right);
     }
 
     private boolean recordStatsOnly(Player player, String itemType, Runnable rollback) {
@@ -470,7 +340,9 @@ public final class TradeService implements Listener {
             return TradeDecision.block("trade.disabled");
         }
 
-        primeTradeState(player, trade);
+        if (!primeTradeState(player, trade)) {
+            return databaseNotReady();
+        }
 
         long remainingCooldown = cooldowns.remaining(player, profession, itemType);
         if (remainingCooldown > 0) {
@@ -576,7 +448,7 @@ public final class TradeService implements Listener {
             return;
         }
         restoreTradeGui(player.getUniqueId());
-        primeTradeState(player, plugin.settings().tradeControl());
+        if (!primeTradeState(player, plugin.settings().tradeControl())) return;
         List<MerchantRecipe> originalRecipes = tradeRecipes.cleanCopyRecipes(villager.getRecipes());
         List<MerchantRecipe> decoratedRecipes = new ArrayList<>();
         String profession = profession(villager);
@@ -689,14 +561,18 @@ public final class TradeService implements Listener {
         return String.format(Locale.ROOT, "%.2f", value);
     }
 
-    private void primeTradeState(Player player, FotiaSettings.TradeControl trade) {
-        plugin.database().primeTradeState(
+    private boolean primeTradeState(Player player, FotiaSettings.TradeControl trade) {
+        return plugin.database().primeTradeState(
             player.getUniqueId(),
             TimeUtil.resetKey(trade.limit().resetPeriod()),
             trade.limit().enabled(),
             trade.cooldown().enabled(),
             trade.costScaling().enabled()
         );
+    }
+
+    private TradeDecision databaseNotReady() {
+        return TradeDecision.block(plugin.database().isConnected() ? "trade.data-loading" : "trade.database-unavailable");
     }
 
     private List<MerchantRecipe> cleanCopyRecipes(List<MerchantRecipe> recipes) {
@@ -715,7 +591,7 @@ public final class TradeService implements Listener {
         for (UUID playerId : List.copyOf(tradeGuiSessions.keySet())) {
             restoreTradeGui(playerId);
         }
-        tradeClickAllowances.clear();
+        clickTracker.clear();
         pendingTradeDisplayCleanup.clear();
         for (UUID playerId : affectedPlayers) {
             Player player = plugin.getServer().getPlayer(playerId);
@@ -806,29 +682,4 @@ public final class TradeService implements Listener {
         }
     }
 
-    private record TradeSignature(String merchantKey, ItemStack result, List<ItemStack> ingredients) {}
-
-    private record IngredientRequirement(ItemStack item, int amount) {}
-
-    private static final class TradeClickAllowance {
-        private final TradeSignature signature;
-        private int remaining;
-
-        private TradeClickAllowance(TradeSignature signature, int remaining) {
-            this.signature = signature;
-            this.remaining = remaining;
-        }
-
-        private TradeSignature signature() {
-            return signature;
-        }
-
-        private int remaining() {
-            return remaining;
-        }
-
-        private void consume() {
-            remaining--;
-        }
-    }
 }

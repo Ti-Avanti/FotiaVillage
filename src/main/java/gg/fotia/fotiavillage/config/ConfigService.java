@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 public final class ConfigService {
     private final FotiaVillagePlugin plugin;
-    private FotiaSettings settings;
+    private volatile FotiaSettings settings;
 
     public ConfigService(FotiaVillagePlugin plugin) {
         this.plugin = plugin;
@@ -68,7 +68,12 @@ public final class ConfigService {
                 atLeast(config.getInt("performance.cleanup-expired-interval", 600), 0),
                 atLeast(config.getInt("performance.database-read-cache-seconds", 5), 0),
                 atLeast(config.getInt("performance.leaderboard-cache-seconds", 2), 0),
-                enumValue(FotiaSettings.DatabaseSynchronous.class, config.getString("performance.database-synchronous", "FULL"), FotiaSettings.DatabaseSynchronous.FULL)
+                enumValue(FotiaSettings.DatabaseSynchronous.class, config.getString("performance.database-synchronous", "FULL"), FotiaSettings.DatabaseSynchronous.FULL),
+                atLeast(config.getInt("performance.database-queue-capacity", 2048), 16),
+                atLeast(config.getInt("performance.database-retry-interval-seconds", 5), 1),
+                atLeast(config.getInt("performance.database-shutdown-timeout-seconds", 15), 1),
+                atLeast(config.getInt("performance.database-cache-max-entries", 4096), 1),
+                atLeast(config.getInt("performance.database-cache-cleanup-interval", 60), 1)
             ),
             new FotiaSettings.WorldFilter(
                 config.getBoolean("world-filter.enabled", true),

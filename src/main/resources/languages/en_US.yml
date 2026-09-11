@@ -7,6 +7,9 @@ reload-success: "<!i><green>Configuration reloaded.</green>"
 reload-failed: "<!i><red>Reload failed: {error}</red>"
 unknown-command: "<!i><red>Unknown subcommand: {command}</red>"
 
+database:
+  ready: "SQLite database is ready."
+
 status:
   connected: "connected"
   disconnected: "disconnected"
@@ -79,6 +82,8 @@ item:
   give-success: "<!i><green>Gave <yellow>{amount}</yellow> lifespan item(s) <yellow>{item}</yellow> to <yellow>{player}</yellow>.</green>"
 
 trade:
+  data-loading: "<!i><yellow>Your trade data is loading. Please try again shortly.</yellow>"
+  database-unavailable: "<!i><red>Trade storage is temporarily unavailable. Please try again shortly.</red>"
   disabled: "<!i><red>Villager trading is disabled.</red>"
   cooldown: "<!i><red>This trade is cooling down. Remaining: </red><yellow>{time}</yellow>"
   limit-reached: "<!i><red>Your trade limit for this period has been reached.</red>"
@@ -108,6 +113,7 @@ trade-gui:
   extra-emeralds-missing: "<!i><red>Not enough emeralds:</red> <gray>available </gray><yellow>{available}</yellow><gray>, missing </gray><red>{missing}</red>"
 
 stats:
+  query-failed: "<!i><red>The database operation could not finish. Please try again shortly.</red>"
   no-data: "<!i><yellow>Player <gold>{player}</gold> has no trade records.</yellow>"
   text-title: "<!i><gold>========== <yellow>Trade Stats</yellow> ==========</gold>"
   player: "<!i><yellow>Player:</yellow> <gold>{player}</gold>"

@@ -31,12 +31,22 @@ performance:
   low-tps-warning: 18.0
   # 清理过期数据库记录的间隔（秒）
   cleanup-expired-interval: 600
-  # 交易限制、冷却、倍率和玩家统计的数据库读取缓存（秒，0 表示关闭）
+  # 玩家统计查询缓存（秒，0 表示每次异步查询）；在线玩家的交易限制、冷却和倍率保留即时状态，退出时释放
   database-read-cache-seconds: 5
   # 排行榜查询缓存（秒，0 表示关闭）
   leaderboard-cache-seconds: 2
   # SQLite 写入同步模式：FULL 更安全；NORMAL 写入更快，但断电时可能丢失最近事务
   database-synchronous: FULL
+  # 后台数据库队列容量；队列已满或写入失败时暂缓新交易，防止无限堆积
+  database-queue-capacity: 2048
+  # 数据库写入失败后的重试间隔（秒）；未完成事务保持原有顺序
+  database-retry-interval-seconds: 5
+  # 停服时后台队列的故障重试等待上限（秒），不在服务器主线程等待
+  database-shutdown-timeout-seconds: 15
+  # 每类查询缓存的最大条目数，达到上限时淘汰最近最少访问的数据
+  database-cache-max-entries: 4096
+  # 内存中过期查询缓存的主动回收间隔（秒），独立于数据库记录清理
+  database-cache-cleanup-interval: 60
 
 # 世界过滤设置
 world-filter:

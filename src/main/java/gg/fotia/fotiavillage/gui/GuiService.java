@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 
 import java.util.HashMap;
 import java.util.List;
@@ -24,8 +25,9 @@ public final class GuiService implements Listener {
         if (!plugin.settings().gui().enabled()) {
             return;
         }
-        player.openInventory(gui.create());
-        open.put(player.getUniqueId(), gui);
+        if (player.openInventory(gui.create()) != null) {
+            open.put(player.getUniqueId(), gui);
+        }
     }
 
     public void closeAll() {
@@ -44,11 +46,22 @@ public final class GuiService implements Listener {
             return;
         }
         BaseGui gui = open.get(player.getUniqueId());
-        if (gui == null) {
+        if (gui == null || event.getView().getTopInventory() != gui.inventory) {
             return;
         }
         event.setCancelled(true);
-        gui.click(event);
+        if (event.getClickedInventory() == gui.inventory) {
+            gui.click(event);
+        }
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        BaseGui gui = open.get(event.getWhoClicked().getUniqueId());
+        if (gui != null && event.getView().getTopInventory() == gui.inventory
+            && event.getRawSlots().stream().anyMatch(slot -> slot < gui.inventory.getSize())) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler

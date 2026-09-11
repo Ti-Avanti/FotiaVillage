@@ -4,23 +4,33 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.NavigableSet;
+import java.util.TreeSet;
 import java.util.UUID;
 
 final class LifespanExpiryQueue {
     private final Map<UUID, Long> deadlines = new HashMap<>();
-    private final PriorityQueue<ExpiryEntry> queue = new PriorityQueue<>((left, right) -> Long.compare(left.deadline(), right.deadline()));
+    private final NavigableSet<ExpiryEntry> queue = new TreeSet<>((left, right) -> {
+        int order = Long.compare(left.deadline(), right.deadline());
+        return order != 0 ? order : left.villagerId().compareTo(right.villagerId());
+    });
 
     void track(UUID villagerId, long deadline) {
         Long previous = deadlines.put(villagerId, deadline);
-        // deadline 未变化时无需重复入队，避免区块反复加载导致队列条目无限增长。
+        // 每个村民只保留一个到期条目，延寿和卸载时同步移除旧条目。
         if (previous == null || previous.longValue() != deadline) {
+            if (previous != null) {
+                queue.remove(new ExpiryEntry(villagerId, previous));
+            }
             queue.add(new ExpiryEntry(villagerId, deadline));
         }
     }
 
     void untrack(UUID villagerId) {
-        deadlines.remove(villagerId);
+        Long deadline = deadlines.remove(villagerId);
+        if (deadline != null) {
+            queue.remove(new ExpiryEntry(villagerId, deadline));
+        }
     }
 
     List<UUID> pollExpired(long now, int maxEntries) {
@@ -28,12 +38,8 @@ final class LifespanExpiryQueue {
             return List.of();
         }
         List<UUID> expired = new ArrayList<>(Math.min(maxEntries, deadlines.size()));
-        while (expired.size() < maxEntries && !queue.isEmpty() && queue.peek().deadline() <= now) {
-            ExpiryEntry entry = queue.poll();
-            Long currentDeadline = deadlines.get(entry.villagerId());
-            if (currentDeadline == null || currentDeadline.longValue() != entry.deadline()) {
-                continue;
-            }
+        while (expired.size() < maxEntries && !queue.isEmpty() && queue.first().deadline() <= now) {
+            ExpiryEntry entry = queue.pollFirst();
             deadlines.remove(entry.villagerId());
             expired.add(entry.villagerId());
         }

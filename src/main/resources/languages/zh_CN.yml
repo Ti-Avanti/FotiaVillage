@@ -11,6 +11,9 @@ status:
   connected: "已连接"
   disconnected: "未连接"
 
+database:
+  ready: "SQLite 数据库已就绪。"
+
 update:
   no-release: "未找到 GitHub Release，发布页：{url}"
   latest: "当前已是最新版本：{version}"
@@ -79,6 +82,8 @@ item:
   give-success: "<!i><green>已给予 <yellow>{player}</yellow> <yellow>{amount}</yellow> 个寿命道具 <yellow>{item}</yellow>。</green>"
 
 trade:
+  data-loading: "<!i><yellow>正在加载交易数据，请稍后重试。</yellow>"
+  database-unavailable: "<!i><red>交易存储暂时不可用，请稍后重试。</red>"
   disabled: "<!i><red>村民交易已被禁用！</red>"
   cooldown: "<!i><red>该交易冷却中，剩余：</red><yellow>{time}</yellow>"
   limit-reached: "<!i><red>本周期交易次数已达上限！</red>"
@@ -108,6 +113,7 @@ trade-gui:
   extra-emeralds-missing: "<!i><red>绿宝石不足：</red><gray>当前可用 </gray><yellow>{available}</yellow><gray>，还差 </gray><red>{missing}</red>"
 
 stats:
+  query-failed: "<!i><red>数据库操作未完成，请稍后重试。</red>"
   no-data: "<!i><yellow>玩家 <gold>{player}</gold> 暂无交易记录。</yellow>"
   text-title: "<!i><gold>========== <yellow>交易统计</yellow> ==========</gold>"
   player: "<!i><yellow>玩家：</yellow><gold>{player}</gold>"

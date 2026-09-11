@@ -1,10 +1,7 @@
 package gg.fotia.fotiavillage.command;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
-import gg.fotia.fotiavillage.gui.StatsGui;
-import gg.fotia.fotiavillage.gui.TopGui;
 import gg.fotia.fotiavillage.lifespan.LifespanService;
-import gg.fotia.fotiavillage.stats.PlayerTradeStats;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -19,7 +16,6 @@ import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,10 +24,11 @@ import java.util.stream.Collectors;
 
 public final class FotiaCommand implements CommandExecutor, TabCompleter {
     private final FotiaVillagePlugin plugin;
-    private final Map<String, Long> clearConfirmations = new HashMap<>();
+    private final DatabaseCommands databaseCommands;
 
     public FotiaCommand(FotiaVillagePlugin plugin) {
         this.plugin = plugin;
+        this.databaseCommands = new DatabaseCommands(plugin);
     }
 
     @Override
@@ -42,10 +39,10 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "reload" -> reload(sender);
-            case "stats" -> stats(sender, args);
-            case "top" -> top(sender);
-            case "admin" -> admin(sender, args);
-            case "perf" -> perf(sender, args);
+            case "stats" -> databaseCommands.stats(sender, args);
+            case "top" -> databaseCommands.top(sender);
+            case "admin" -> databaseCommands.admin(sender, args);
+            case "perf" -> databaseCommands.perf(sender, args);
             case "lifespan" -> lifespan(sender, args);
             case "item" -> item(sender, args);
             case "kill" -> kill(sender);
@@ -75,126 +72,6 @@ public final class FotiaCommand implements CommandExecutor, TabCompleter {
         } catch (Exception ex) {
             plugin.language().prefixed(sender, "reload-failed", Map.of("error", ex.getMessage()));
             plugin.getLogger().log(Level.SEVERE, "Failed to reload FotiaVillage", ex);
-        }
-    }
-
-    private void stats(CommandSender sender, String[] args) {
-        if (!require(sender, "fotiavillage.stats")) return;
-        PlayerTradeStats stats;
-        if (args.length >= 2) {
-            if (!require(sender, "fotiavillage.stats.others")) return;
-            stats = plugin.stats().findByName(args[1]).orElse(null);
-            if (stats == null) {
-                plugin.language().prefixed(sender, "player-not-found");
-                return;
-            }
-        } else {
-            if (!(sender instanceof Player player)) {
-                plugin.language().prefixed(sender, "player-only");
-                return;
-            }
-            stats = plugin.stats().find(player.getUniqueId()).orElse(null);
-            if (stats == null) {
-                plugin.language().prefixed(sender, "stats.no-data", Map.of("player", player.getName()));
-                return;
-            }
-        }
-        if (sender instanceof Player player && plugin.settings().gui().enabled()) {
-            plugin.gui().open(player, new StatsGui(plugin, player, stats));
-            return;
-        }
-        sendStatsText(sender, stats);
-    }
-
-    private void sendStatsText(CommandSender sender, PlayerTradeStats stats) {
-        plugin.language().send(sender, "stats.text-title");
-        plugin.language().send(sender, "stats.player", Map.of("player", stats.playerName()));
-        plugin.language().send(sender, "stats.total-trades", Map.of("trades", stats.totalTrades()));
-        plugin.language().send(sender, "stats.total-exp", Map.of("exp", stats.totalExpSpent()));
-        stats.itemCounts().entrySet().stream().limit(5).forEach(entry -> plugin.language().send(sender, "stats.item-line", Map.of("item", entry.getKey(), "count", entry.getValue())));
-    }
-
-    private void top(CommandSender sender) {
-        if (!require(sender, "fotiavillage.top")) return;
-        List<PlayerTradeStats> leaderboard = plugin.stats().leaderboard();
-        if (leaderboard.isEmpty()) {
-            plugin.language().prefixed(sender, "leaderboard.no-data");
-            return;
-        }
-        if (sender instanceof Player player && plugin.settings().gui().enabled()) {
-            plugin.gui().open(player, new TopGui(plugin, player, leaderboard));
-            return;
-        }
-        plugin.language().send(sender, "leaderboard.text-title");
-        for (int i = 0; i < leaderboard.size(); i++) {
-            PlayerTradeStats stats = leaderboard.get(i);
-            plugin.language().send(sender, "leaderboard.line", Map.of("rank", i + 1, "player", stats.playerName(), "trades", stats.totalTrades()));
-        }
-    }
-
-    private void admin(CommandSender sender, String[] args) {
-        if (!require(sender, "fotiavillage.admin")) return;
-        if (args.length < 2) {
-            help(sender);
-            return;
-        }
-        switch (args[1].toLowerCase(Locale.ROOT)) {
-            case "reset" -> {
-                if (args.length < 3) {
-                    plugin.language().prefixed(sender, "admin.reset-usage");
-                    return;
-                }
-                PlayerTradeStats stats = plugin.stats().findByName(args[2]).orElse(null);
-                Player onlineTarget = onlinePlayer(args[2]);
-                if (stats == null && onlineTarget == null) {
-                    plugin.language().prefixed(sender, "player-not-found");
-                    return;
-                }
-                plugin.database().resetPlayer(stats != null ? stats.uuid() : onlineTarget.getUniqueId());
-                plugin.language().prefixed(sender, "admin.reset-success", Map.of("player", stats != null ? stats.playerName() : onlineTarget.getName()));
-            }
-            case "clear" -> clear(sender, args);
-            case "info" -> plugin.language().prefixed(sender, "admin.info", Map.of("version", plugin.getDescription().getVersion(), "database", databaseStatus()));
-            default -> help(sender);
-        }
-    }
-
-    private void clear(CommandSender sender, String[] args) {
-        String key = sender.getName();
-        long now = System.currentTimeMillis();
-        clearConfirmations.values().removeIf(requestedAt -> now - requestedAt > 10_000L);
-        if (args.length >= 3 && args[2].equalsIgnoreCase("confirm")) {
-            Long requested = clearConfirmations.get(key);
-            if (requested != null && now - requested <= 10_000L) {
-                plugin.database().clearTradeData();
-                clearConfirmations.remove(key);
-                plugin.language().prefixed(sender, "admin.clear-success");
-                return;
-            }
-        }
-        clearConfirmations.put(key, now);
-        plugin.language().prefixed(sender, "admin.clear-warning");
-    }
-
-    private void perf(CommandSender sender, String[] args) {
-        if (!require(sender, "fotiavillage.admin")) return;
-        String option = args.length >= 2 ? args[1].toLowerCase(Locale.ROOT) : "overview";
-        switch (option) {
-            case "database" -> plugin.language().send(sender, "perf.database", Map.of("status", databaseStatus(), "size", plugin.database().file().exists() ? plugin.database().file().length() + " bytes" : "0 bytes"));
-            case "tracker" -> {
-                var stats = plugin.villagerTracker().stats();
-                plugin.language().send(sender, "perf.tracker", Map.of("chunks", stats.trackedChunks(), "villagers", stats.totalVillagers()));
-            }
-            case "cleanup" -> {
-                plugin.language().prefixed(sender, "perf.cleanup-start");
-                plugin.performance().cleanupExpiredData();
-                plugin.language().prefixed(sender, "perf.cleanup-done");
-            }
-            case "memory", "overview" -> {
-                plugin.language().send(sender, "perf.title");
-                plugin.language().send(sender, "perf.overview", Map.of("tps", plugin.performance().tps(), "used", plugin.performance().usedMemoryMb(), "max", plugin.performance().maxMemoryMb(), "uptime", plugin.performance().uptime()));
-            }
-            default -> plugin.language().prefixed(sender, "unknown-command", Map.of("command", option));
         }
     }
 

@@ -63,7 +63,6 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
             removeEntity(id);
             villager.getPersistentDataContainer().remove(displayIdKey);
         }
-        removeOwnedDisplays(villager, null);
     }
 
     @Override
@@ -79,7 +78,8 @@ abstract class AbstractEntityLifespanDisplayRenderer implements LifespanDisplayR
                     entity = plugin.getServer().getEntity(UUID.fromString(owner));
                 } catch (IllegalArgumentException ignored) {
                 }
-                if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()) {
+                if (!(entity instanceof Villager villager) || !villager.isValid() || villager.isDead()
+                    || displays.get(villager.getUniqueId()) != display) {
                     display.remove();
                 }
             }

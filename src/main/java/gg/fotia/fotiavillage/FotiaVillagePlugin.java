@@ -54,7 +54,8 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         languageService = new LanguageService(this);
         languageService.load();
         databaseService = new DatabaseService(this);
-        databaseService.open();
+        String databaseReady = languageService.plain("database.ready");
+        databaseService.open().thenRun(() -> getLogger().info(databaseReady));
         compatibilityService = new CompatibilityService(this);
         performanceService = new PerformanceService(this);
         villagerTracker = new VillagerTracker(this);
@@ -72,6 +73,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
 
         villagerTracker.initialize();
         registerEvents();
+        getServer().getOnlinePlayers().forEach(player -> databaseService.preload(player.getUniqueId()));
         registerCommand();
         syncPlaceholder();
         lifespanService.start();
@@ -97,6 +99,7 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         configService.load();
         databaseService.applyRuntimeSettings();
         databaseService.clearReadCaches();
+        getServer().getOnlinePlayers().forEach(player -> databaseService.preload(player.getUniqueId()));
         lifespanItemService.load();
         languageService.load();
         villagerTracker.initialize();

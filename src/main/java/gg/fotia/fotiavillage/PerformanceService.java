@@ -5,12 +5,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.text.DecimalFormat;
+import java.util.concurrent.CompletableFuture;
 
 public final class PerformanceService {
     private final FotiaVillagePlugin plugin;
     private final long startedAt = System.currentTimeMillis();
     private BukkitTask reportTask;
     private BukkitTask cleanupTask;
+    private BukkitTask cacheTask;
 
     public PerformanceService(FotiaVillagePlugin plugin) {
         this.plugin = plugin;
@@ -25,13 +27,17 @@ public final class PerformanceService {
         if (settings.cleanupExpiredInterval() > 0) {
             cleanupTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::cleanupExpiredData, 20L * settings.cleanupExpiredInterval(), 20L * settings.cleanupExpiredInterval());
         }
+        long cacheInterval = settings.databaseCacheCleanupIntervalSeconds() * 20L;
+        cacheTask = plugin.getServer().getScheduler().runTaskTimer(plugin, plugin.database()::purgeExpiredCaches, cacheInterval, cacheInterval);
     }
 
     public void stop() {
         if (reportTask != null) reportTask.cancel();
         if (cleanupTask != null) cleanupTask.cancel();
+        if (cacheTask != null) cacheTask.cancel();
         reportTask = null;
         cleanupTask = null;
+        cacheTask = null;
     }
 
     public String tps() {
@@ -51,11 +57,11 @@ public final class PerformanceService {
         return plugin.language().formatDuration(System.currentTimeMillis() - startedAt);
     }
 
-    public void cleanupExpiredData() {
+    public CompletableFuture<Void> cleanupExpiredData() {
         long now = System.currentTimeMillis();
         int scalingResetHours = plugin.settings().tradeControl().costScaling().resetHours();
         long scalingExpiresBefore = scalingResetHours > 0 ? now - scalingResetHours * 60L * 60L * 1000L : 0L;
-        plugin.database().cleanupExpired(now, TimeUtil.resetKey(plugin.settings().tradeControl().limit().resetPeriod()), scalingExpiresBefore);
+        return plugin.database().cleanupExpired(now, TimeUtil.resetKey(plugin.settings().tradeControl().limit().resetPeriod()), scalingExpiresBefore);
     }
 
     private void reportIfNeeded() {

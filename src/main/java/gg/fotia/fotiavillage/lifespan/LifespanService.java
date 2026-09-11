@@ -347,7 +347,7 @@ public final class LifespanService implements Listener {
             }
             if (shouldShowDisplay(villager)) {
                 createOrUpdateDisplay(villager);
-            } else {
+            } else if (visibleVillagers.contains(villager.getUniqueId())) {
                 cleanupDisplay(villager);
             }
         }
@@ -525,7 +525,7 @@ public final class LifespanService implements Listener {
     private void refreshDisplay(Villager villager) {
         if (shouldShowDisplay(villager)) {
             createOrUpdateDisplay(villager);
-        } else {
+        } else if (visibleVillagers.contains(villager.getUniqueId())) {
             cleanupDisplay(villager);
         }
     }
