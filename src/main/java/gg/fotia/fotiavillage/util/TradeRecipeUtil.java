@@ -1,5 +1,8 @@
 package gg.fotia.fotiavillage.util;
 
+import gg.fotia.fotiavillage.compat.MerchantPriceCompat;
+import gg.fotia.fotiavillage.compat.LegacyMerchantRecipes;
+import org.bukkit.entity.Villager;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -63,8 +66,10 @@ public final class TradeRecipeUtil {
     }
 
     public MerchantRecipe copyRecipe(MerchantRecipe recipe, ItemStack result) {
-        MerchantRecipe copy = new MerchantRecipe(result, recipe.getUses(), recipe.getMaxUses(), recipe.hasExperienceReward(), recipe.getVillagerExperience(), recipe.getPriceMultiplier(), recipe.getDemand(), recipe.getSpecialPrice());
+        MerchantRecipe copy = new MerchantRecipe(result, recipe.getUses(), recipe.getMaxUses(), recipe.hasExperienceReward(), recipe.getVillagerExperience(), recipe.getPriceMultiplier());
+        MerchantPriceCompat.apply(copy, MerchantPriceCompat.demand(recipe), MerchantPriceCompat.specialPrice(recipe));
         copy.setIngredients(recipe.getIngredients().stream().map(ItemStack::clone).toList());
+        copy.setIgnoreDiscounts(recipe.shouldIgnoreDiscounts());
         return copy;
     }
 
@@ -74,5 +79,10 @@ public final class TradeRecipeUtil {
             copies.add(copyRecipe(recipe, stripTradeGuiInfo(recipe.getResult().clone())));
         }
         return copies;
+    }
+
+    public void replaceResults(Villager villager, List<MerchantRecipe> recipes) {
+        villager.setRecipes(MerchantPriceCompat.hasExtendedPrices() ? recipes
+            : LegacyMerchantRecipes.copyWithResults(villager, recipes.stream().map(MerchantRecipe::getResult).toList()));
     }
 }

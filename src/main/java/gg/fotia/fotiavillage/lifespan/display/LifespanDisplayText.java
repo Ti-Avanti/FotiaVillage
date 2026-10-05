@@ -1,7 +1,7 @@
 package gg.fotia.fotiavillage.lifespan.display;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.List;
@@ -14,6 +14,13 @@ public record LifespanDisplayText(List<Component> components, List<String> holog
     }
 
     public Component component() {
-        return Component.join(JoinConfiguration.newlines(), components);
+        TextComponent.Builder result = Component.text();
+        for (int i = 0; i < components.size(); i++) {
+            if (i > 0) {
+                result.append(Component.newline());
+            }
+            result.append(components.get(i));
+        }
+        return result.build();
     }
 }

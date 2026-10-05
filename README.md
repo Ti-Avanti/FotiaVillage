@@ -21,8 +21,8 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 
 | 项目 | 要求 |
 | --- | --- |
-| 服务端 | Paper `1.18.x` - `1.21.x` |
-| Java | `17` 及以上（随服务端版本要求） |
+| 服务端 | Paper `1.18.x` - `1.21.x`、`26.2`、`26.3` |
+| Java | 旧版本按服务端要求使用 `17` 或 `21`；`26.2` / `26.3` 使用 `25` |
 | 构建工具 | Maven |
 | 可选依赖 | PlaceholderAPI、Shopkeepers、Citizens、DecentHolograms、CustomNameplates |
 | 数据库 | SQLite，数据文件为 `plugins/FotiaVillage/data.db` |
@@ -132,7 +132,13 @@ FotiaVillage 是一个面向 Paper 服务端的村民管理插件，用于集中
 mvn clean package
 ```
 
-构建产物位于 `target/FotiaVillage-版本号.jar`。项目会把 SQLite JDBC 打入最终 jar，Paper API、PlaceholderAPI 和 MiniMessage 依赖按服务端提供处理。
+在仓库根目录执行构建，产物仍为 `target/FotiaVillage-版本号.jar`，同一个 JAR 用于所有支持版本，插件字节码保持 Java 17。SQLite JDBC 通过 `plugin.yml` 的 `libraries` 加载，不打包进插件。
+
+`plugin/pom.xml` 编译现有 `src/` 源码；`legacy-text` 仅为 Paper 1.18 / 1.18.1 提供隔离的 MiniMessage 解析器，通过 JSON 与服务端组件交换文本。Paper 1.18.2 及以后使用服务端自带的 MiniMessage，避免旧文本库与新版 Adventure 冲突。
+
+寿命道具支持带命名空间的职业和类型 ID，例如 `minecraft:farmer`。`item-model` 适用于支持该组件的服务端；旧版可以继续使用 `custom-model-data` / `model-data`，配置不受支持的 `item-model` 会停用对应道具并输出原因。
+
+世界过滤同时接受旧世界名称和 `minecraft:overworld` 等世界 ID，黑名单优先。最初的 Paper 1.18 未公开交易需求值和特殊价格 API，该版本通过 Paper 公开的实体序列化接口保留完整交易配方，不使用反射；后续版本直接使用交易 API。
 
 ## 发布
 

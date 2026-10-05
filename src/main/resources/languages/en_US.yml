@@ -76,6 +76,7 @@ lifespan:
   item-excluded: "<!i><red>This villager is excluded by compatibility rules and cannot receive lifespan.</red>"
 
 item:
+  model-unavailable: "Lifespan item {item} disabled: this server cannot preserve item-model {model}. Check the model ID or remove item-model on unsupported versions."
   give-usage: "<!i><red>Usage: /fv item give <player> <item-id> [amount]</red>"
   unknown: "<!i><red>Unknown lifespan item config: {item}</red>"
   invalid-amount: "<!i><red>Amount must be an integer greater than 0.</red>"

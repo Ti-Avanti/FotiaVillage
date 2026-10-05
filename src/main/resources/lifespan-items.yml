@@ -24,7 +24,7 @@ items:
     permission: ""
     # 目标村民限制，列表为空表示不限制
     target:
-      # 村民职业 ID，配置时不需要写 minecraft: 前缀，大小写不敏感。
+      # 村民职业 ID，可带 minecraft: 前缀，大小写不敏感。
       # 全部可用职业 ID：
       # NONE（无职业）、ARMORER（盔甲匠）、BUTCHER（屠夫）、CARTOGRAPHER（制图师）、
       # CLERIC（牧师）、FARMER（农民）、FISHERMAN（渔夫）、FLETCHER（制箭师）、
@@ -47,7 +47,8 @@ items:
       custom-model-data: 1001
       # 兼容别名，和 custom-model-data 二选一即可
       # model-data: 1001
-      # 新版 item_model；单 jar 会优先通过物品元数据序列化兼容匹配。
+      # 1.21.2+ 的 item_model；通过 Bukkit 物品序列化接口生成和匹配。
+      # 旧服务端不支持此字段时会停用该道具并提示；旧版请仅配置 custom-model-data。
       # item-model: "fotiavillage:farmer_lifespan_contract"
       # 耐久损伤值，仅对有耐久的物品生效；不需要时不要填写。
       # damage: 0

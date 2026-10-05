@@ -1,6 +1,8 @@
 package gg.fotia.fotiavillage.lifespan;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
+import gg.fotia.fotiavillage.compat.ItemModelCompat;
+import gg.fotia.fotiavillage.compat.VillagerRegistry;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -112,6 +114,14 @@ public final class LifespanItemService {
         if (!matcher.itemFlags().isEmpty()) {
             meta.addItemFlags(matcher.itemFlags().toArray(ItemFlag[]::new));
         }
+        if (matcher.itemModel().isPresent()) {
+            Optional<ItemMeta> modeled = ItemModelCompat.withItemModel(meta, matcher.itemModel().get());
+            if (modeled.isEmpty()) {
+                return Optional.empty();
+            }
+            stack.setItemMeta(modeled.get());
+            return Optional.of(stack);
+        }
         stack.setItemMeta(meta);
         return Optional.of(stack);
     }
@@ -158,8 +168,13 @@ public final class LifespanItemService {
                 continue;
             }
             ItemMatcher matcher = readMatcher(itemSection.getConfigurationSection("item"));
-            if (matcher.material() == null) {
+            if (matcher.material() == null || matcher.material().isAir()) {
                 plugin.getLogger().warning("lifespan-items.yml 中的道具 " + id + " 缺少有效 material，已跳过。");
+                continue;
+            }
+            if (matcher.itemModel().isPresent()
+                && ItemModelCompat.withItemModel(new ItemStack(matcher.material()).getItemMeta(), matcher.itemModel().get()).isEmpty()) {
+                plugin.getLogger().warning(plugin.language().plain("item.model-unavailable", Map.of("item", id, "model", matcher.itemModel().get())));
                 continue;
             }
             ConfigurationSection target = itemSection.getConfigurationSection("target");
@@ -210,10 +225,11 @@ public final class LifespanItemService {
             if (raw.equals("*")) {
                 return Set.of();
             }
-            try {
-                result.add(Villager.Profession.valueOf(raw.toUpperCase(Locale.ROOT)));
-            } catch (IllegalArgumentException ex) {
+            Villager.Profession profession = VillagerRegistry.profession(raw);
+            if (profession == null) {
                 plugin.getLogger().warning("Invalid villager profession in lifespan-items.yml: " + raw);
+            } else {
+                result.add(profession);
             }
         }
         return Set.copyOf(result);
@@ -228,10 +244,11 @@ public final class LifespanItemService {
             if (raw.equals("*")) {
                 return Set.of();
             }
-            try {
-                result.add(Villager.Type.valueOf(raw.toUpperCase(Locale.ROOT)));
-            } catch (IllegalArgumentException ex) {
+            Villager.Type type = VillagerRegistry.type(raw);
+            if (type == null) {
                 plugin.getLogger().warning("Invalid villager type in lifespan-items.yml: " + raw);
+            } else {
+                result.add(type);
             }
         }
         return Set.copyOf(result);
@@ -379,10 +396,10 @@ public final class LifespanItemService {
                 return false;
             }
             Optional<Integer> requiredModelData = customModelData.isPresent() ? customModelData : modelData;
-            if (requiredModelData.isPresent() && (!meta.hasCustomModelData() || meta.getCustomModelData() != requiredModelData.get())) {
+            if (requiredModelData.isPresent() && !ItemModelCompat.matchesCustomModelData(meta, requiredModelData.get())) {
                 return false;
             }
-            if (itemModel.isPresent() && !matchesItemModel(meta, itemModel.get())) {
+            if (itemModel.isPresent() && !ItemModelCompat.matchesItemModel(stack, meta, itemModel.get())) {
                 return false;
             }
             if (damage.isPresent() && (!(meta instanceof Damageable damageable) || !damageable.hasDamage() || damageable.getDamage() != damage.get())) {
@@ -420,44 +437,5 @@ public final class LifespanItemService {
             return true;
         }
 
-        private boolean matchesItemModel(ItemMeta meta, String expected) {
-            Object value = findSerializedValue(meta.serialize());
-            if (value == null) {
-                return false;
-            }
-            return normalizeItemModel(String.valueOf(value)).equals(normalizeItemModel(expected));
-        }
-
-        private Object findSerializedValue(Object value) {
-            if (value instanceof Map<?, ?> map) {
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    String key = String.valueOf(entry.getKey());
-                    if (isItemModelKey(key)) {
-                        return entry.getValue();
-                    }
-                    Object nested = findSerializedValue(entry.getValue());
-                    if (nested != null) {
-                        return nested;
-                    }
-                }
-            } else if (value instanceof Iterable<?> iterable) {
-                for (Object element : iterable) {
-                    Object nested = findSerializedValue(element);
-                    if (nested != null) {
-                        return nested;
-                    }
-                }
-            }
-            return null;
-        }
-
-        private boolean isItemModelKey(String key) {
-            String normalized = key.toLowerCase(Locale.ROOT).replace("-", "").replace("_", "");
-            return normalized.equals("itemmodel");
-        }
-
-        private String normalizeItemModel(String value) {
-            return value.trim().toLowerCase(Locale.ROOT);
-        }
     }
 }

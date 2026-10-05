@@ -2,7 +2,7 @@ package gg.fotia.fotiavillage.lifespan.display;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import gg.fotia.fotiavillage.compat.text.TextCodec;
 import net.momirealms.customnameplates.api.CustomNameplatesAPI;
 import net.momirealms.customnameplates.api.feature.nameplate.Nameplate;
 import net.momirealms.customnameplates.api.helper.AdventureHelper;
@@ -14,7 +14,7 @@ import java.util.Set;
 
 public final class CustomNameplatesLifespanTagFormatter implements LifespanTagFormatter {
     private final FotiaVillagePlugin plugin;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final TextCodec miniMessage = TextCodec.create();
     private final Set<String> warnedMissingNameplates = new HashSet<>();
     private boolean warnedApiFailure;
 

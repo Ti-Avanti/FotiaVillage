@@ -30,14 +30,19 @@ public record FotiaSettings(
     public enum DatabaseSynchronous { FULL, NORMAL }
     public record WorldFilter(boolean enabled, Set<String> whitelist, Set<String> blacklist) {
         public boolean isAllowed(String worldName) {
-            if (!enabled || worldName == null || worldName.isBlank()) {
+            return isAllowed(worldName, null);
+        }
+
+        public boolean isAllowed(String worldName, String worldKey) {
+            if (!enabled || ((worldName == null || worldName.isBlank()) && (worldKey == null || worldKey.isBlank()))) {
                 return true;
             }
-            String normalized = worldName.toLowerCase(Locale.ROOT);
-            if (blacklist.contains(normalized)) {
+            String normalized = worldName == null ? "" : worldName.toLowerCase(Locale.ROOT);
+            String normalizedKey = worldKey == null ? "" : worldKey.toLowerCase(Locale.ROOT);
+            if (blacklist.contains(normalized) || blacklist.contains(normalizedKey)) {
                 return false;
             }
-            return whitelist.isEmpty() || whitelist.contains(normalized);
+            return whitelist.isEmpty() || whitelist.contains(normalized) || whitelist.contains(normalizedKey);
         }
     }
     public record Compatibility(boolean excludeShopkeepersFromLifespan, boolean excludeCitizensFromLifespan, boolean excludeGenericNpcMetadataFromLifespan, String genericNpcMetadataKey) {}

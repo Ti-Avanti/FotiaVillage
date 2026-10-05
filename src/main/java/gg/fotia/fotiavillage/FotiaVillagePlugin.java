@@ -100,8 +100,8 @@ public final class FotiaVillagePlugin extends JavaPlugin {
         databaseService.applyRuntimeSettings();
         databaseService.clearReadCaches();
         getServer().getOnlinePlayers().forEach(player -> databaseService.preload(player.getUniqueId()));
-        lifespanItemService.load();
         languageService.load();
+        lifespanItemService.load();
         villagerTracker.initialize();
         lifespanService.start();
         performanceService.start();
@@ -158,7 +158,14 @@ public final class FotiaVillagePlugin extends JavaPlugin {
     }
 
     public boolean isWorldAllowed(World world) {
-        return world != null && settings().worldFilter().isAllowed(world.getName());
+        if (world == null) {
+            return false;
+        }
+        var filter = settings().worldFilter();
+        if (!filter.enabled() || (filter.whitelist().isEmpty() && filter.blacklist().isEmpty())) {
+            return true;
+        }
+        return filter.isAllowed(world.getName(), world.getKey().toString());
     }
 
     public boolean isWorldAllowed(Location location) {

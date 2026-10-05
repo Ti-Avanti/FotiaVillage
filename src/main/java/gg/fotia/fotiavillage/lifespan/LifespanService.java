@@ -1,6 +1,9 @@
 package gg.fotia.fotiavillage.lifespan;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
+import gg.fotia.fotiavillage.compat.VillagerRegistry;
+import gg.fotia.fotiavillage.compat.MerchantPriceCompat;
+import gg.fotia.fotiavillage.compat.LegacyMerchantRecipes;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import gg.fotia.fotiavillage.lifespan.display.ArmorStandLifespanDisplayRenderer;
 import gg.fotia.fotiavillage.lifespan.display.CustomNameplatesLifespanTagFormatter;
@@ -567,11 +570,15 @@ public final class LifespanService implements Listener {
 
     private TradeSnapshot createTradeSnapshot(Villager villager) {
         ensureTradeRecipes(villager);
+        List<MerchantRecipe> recipes = tradeRecipes.cleanCopyRecipes(villager.getRecipes());
+        String legacyEntity = MerchantPriceCompat.hasExtendedPrices() ? ""
+            : LegacyMerchantRecipes.snapshot(villager, recipes.stream().map(MerchantRecipe::getResult).toList());
         return new TradeSnapshot(
             villager.getVillagerLevel(),
             villager.getVillagerExperience(),
             restocksToday(villager),
-            tradeRecipes.cleanCopyRecipes(villager.getRecipes())
+            recipes,
+            legacyEntity
         );
     }
 
@@ -608,6 +615,9 @@ public final class LifespanService implements Listener {
         config.set("experience", snapshot.experience());
         config.set("restocks-today", snapshot.restocksToday());
         config.set("recipe-count", snapshot.recipes().size());
+        if (!snapshot.legacyEntity().isEmpty()) {
+            config.set("legacy-entity", snapshot.legacyEntity());
+        }
         for (int i = 0; i < snapshot.recipes().size(); i++) {
             writeRecipe(config.createSection("recipes." + i), snapshot.recipes().get(i));
         }
@@ -621,8 +631,9 @@ public final class LifespanService implements Listener {
         section.set("experience-reward", recipe.hasExperienceReward());
         section.set("villager-experience", recipe.getVillagerExperience());
         section.set("price-multiplier", recipe.getPriceMultiplier());
-        section.set("demand", recipe.getDemand());
-        section.set("special-price", recipe.getSpecialPrice());
+        section.set("demand", MerchantPriceCompat.demand(recipe));
+        section.set("special-price", MerchantPriceCompat.specialPrice(recipe));
+        section.set("ignore-discounts", recipe.shouldIgnoreDiscounts());
         section.set("ingredients", recipe.getIngredients().stream().map(ItemStack::clone).toList());
     }
 
@@ -655,7 +666,8 @@ public final class LifespanService implements Listener {
             Math.max(1, Math.min(5, config.getInt("level", 1))),
             Math.max(0, config.getInt("experience", 0)),
             Math.max(0, config.getInt("restocks-today", 0)),
-            recipes
+            recipes,
+            config.getString("legacy-entity", "")
         );
     }
 
@@ -670,11 +682,11 @@ public final class LifespanService implements Listener {
             Math.max(1, section.getInt("max-uses", 999999)),
             section.getBoolean("experience-reward", true),
             Math.max(0, section.getInt("villager-experience", 0)),
-            (float) section.getDouble("price-multiplier", 0.0D),
-            section.getInt("demand", 0),
-            section.getInt("special-price", 0)
+            (float) section.getDouble("price-multiplier", 0.0D)
         );
+        MerchantPriceCompat.apply(recipe, section.getInt("demand", 0), section.getInt("special-price", 0));
         recipe.setIngredients(readIngredients(section));
+        recipe.setIgnoreDiscounts(section.getBoolean("ignore-discounts", false));
         return recipe;
     }
 
@@ -696,7 +708,9 @@ public final class LifespanService implements Listener {
         } catch (NoSuchMethodError ignored) {
             // Paper 1.18 does not expose restock counters.
         }
-        if (!snapshot.recipes().isEmpty()) {
+        if (!snapshot.legacyEntity().isEmpty()) {
+            villager.setRecipes(LegacyMerchantRecipes.restore(snapshot.legacyEntity(), villager.getWorld()));
+        } else if (!snapshot.recipes().isEmpty()) {
             villager.setRecipes(tradeRecipes.cleanCopyRecipes(snapshot.recipes()));
         }
     }
@@ -715,8 +729,8 @@ public final class LifespanService implements Listener {
             Map.entry("total_hours", hours),
             Map.entry("total_minutes", minutes),
             Map.entry("total_seconds", seconds),
-            Map.entry("profession", villager.getProfession().name()),
-            Map.entry("type", villager.getVillagerType().name()),
+            Map.entry("profession", VillagerRegistry.legacyName(villager.getProfession())),
+            Map.entry("type", VillagerRegistry.legacyName(villager.getVillagerType())),
             Map.entry("uuid", villager.getUniqueId())
         );
     }
@@ -906,5 +920,5 @@ public final class LifespanService implements Listener {
 
     public record LifespanRemoveResult(LifespanRemoveStatus status, long remaining, boolean expired) {}
 
-    private record TradeSnapshot(int level, int experience, int restocksToday, List<MerchantRecipe> recipes) {}
+    private record TradeSnapshot(int level, int experience, int restocksToday, List<MerchantRecipe> recipes, String legacyEntity) {}
 }

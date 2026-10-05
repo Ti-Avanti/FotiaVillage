@@ -1,6 +1,8 @@
 package gg.fotia.fotiavillage.trade;
 
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
+import gg.fotia.fotiavillage.compat.VillagerRegistry;
+import gg.fotia.fotiavillage.compat.MerchantCompat;
 import gg.fotia.fotiavillage.config.FotiaSettings;
 import gg.fotia.fotiavillage.util.ExperienceUtil;
 import gg.fotia.fotiavillage.util.TimeUtil;
@@ -71,7 +73,7 @@ public final class TradeService implements Listener {
         if (!(event.getInventory() instanceof MerchantInventory inventory)) {
             return;
         }
-        if (!(inventory.getMerchant() instanceof Villager villager)) {
+        if (!(MerchantCompat.resolve(inventory) instanceof Villager villager)) {
             return;
         }
         if (!plugin.isWorldAllowed(villager.getWorld())) {
@@ -133,7 +135,7 @@ public final class TradeService implements Listener {
         if (!isTradeResultAction(event, recipe)) {
             return;
         }
-        Merchant merchant = inventory.getMerchant();
+        Merchant merchant = MerchantCompat.resolve(inventory);
         FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
         if (!trade.enabled()) {
             clickTracker.remember(player, merchant, recipe, inventory, event);
@@ -162,7 +164,7 @@ public final class TradeService implements Listener {
         if (!(event.getView().getTopInventory() instanceof MerchantInventory inventory)) {
             return;
         }
-        Merchant merchant = inventory.getMerchant();
+        Merchant merchant = MerchantCompat.resolve(inventory);
         if (!shouldCommitFromInventoryClick(merchant)) {
             return;
         }
@@ -456,7 +458,7 @@ public final class TradeService implements Listener {
             decoratedRecipes.add(decorateRecipe(player, profession, recipe));
         }
         tradeGuiSessions.put(player.getUniqueId(), villager);
-        villager.setRecipes(decoratedRecipes);
+        tradeRecipes.replaceResults(villager, decoratedRecipes);
         player.updateInventory();
     }
 
@@ -605,7 +607,7 @@ public final class TradeService implements Listener {
         Villager merchant = tradeGuiSessions.remove(playerId);
         if (merchant != null && merchant.isValid() && !merchant.isDead()) {
             // 基于当前配方剥离 GUI 附加信息，保留本次交易产生的 uses/demand 变化。
-            merchant.setRecipes(cleanCopyRecipes(merchant.getRecipes()));
+            tradeRecipes.replaceResults(merchant, cleanCopyRecipes(merchant.getRecipes()));
         }
     }
 
@@ -656,7 +658,7 @@ public final class TradeService implements Listener {
 
     private String profession(AbstractVillager abstractVillager) {
         if (abstractVillager instanceof Villager villager) {
-            return villager.getProfession().getKey().getKey().toUpperCase(Locale.ROOT);
+            return VillagerRegistry.legacyName(villager.getProfession());
         }
         return "WANDERING_TRADER";
     }

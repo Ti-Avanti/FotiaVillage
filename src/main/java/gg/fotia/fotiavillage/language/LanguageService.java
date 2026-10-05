@@ -3,7 +3,7 @@ package gg.fotia.fotiavillage.language;
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.util.LegacyColorConverter;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import gg.fotia.fotiavillage.compat.text.TextCodec;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -25,7 +25,7 @@ public final class LanguageService {
     private static final int FORMATTING_CACHE_SIZE = 2048;
 
     private final FotiaVillagePlugin plugin;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final TextCodec miniMessage = TextCodec.create();
     private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
     private final Map<String, String> normalizedTemplateCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
     private final Map<String, Component> componentCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
