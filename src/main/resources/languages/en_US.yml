@@ -97,7 +97,32 @@ trade:
   scaling: "<!i><yellow>Current trade cost multiplier: </yellow><red>{multiplier}</red>"
   database-error: "<!i><red>Failed to save trade data. This trade has been cancelled.</red>"
 
+language:
+  invalid-lines: "Language entry {path} must be a string or a list of strings; using the default text."
+
 trade-gui:
+  # 完整交易说明模板：每项一行，可自由增删和排序。"" 保留空行，[] 隐藏整段。
+  # 支持 MiniMessage、&/§ 颜色及十六进制颜色；默认不斜体，可显式使用 <i>。
+  # 旧语言文件不会自动添加 lore；未配置时仍使用下方 header 和各提示的旧布局。
+  # 配置 lore 后不会再自动追加 header 或其他提示；下方提示均可改为字符串列表。
+  # 含相关变量的行遵循 gui-display.show-* 和功能开关，缺少任一有效变量时整行隐藏。
+  # 经验：{exp-amount}、{exp-unit}；倍率：{exp-multiplier}、{scaling}、{group}。
+  # 次数：{global-used}/{global-limit}、{jobs-used}/{jobs-limit}、{items-used}/{items-limit}。
+  # 绿宝石：{extra-emeralds-amount}、{emeralds-available}、{emeralds-missing}；冷却：{cooldown}。
+  # <cooldown> 和 <emeralds-stats> 必须独占模板一行，按状态展开下方对应提示。
+  lore:
+    - "<!i><dark_gray>--- FotiaVillage Trade Limits ---</dark_gray>"
+    - ""
+    - "<!i><gray>Experience cost:</gray> <yellow>{exp-amount} {exp-unit}</yellow>"
+    - "<!i><gray>Experience multiplier:</gray> <yellow>x{exp-multiplier}</yellow> <dark_gray>(scaling x{scaling} / group x{group})</dark_gray>"
+    - "<cooldown>"
+    - "<!i><gray>Global trades:</gray> <yellow>{global-used}/{global-limit}</yellow>"
+    - "<!i><gray>Profession trades:</gray> <yellow>{jobs-used}/{jobs-limit}</yellow>"
+    - "<!i><gray>Item trades:</gray> <yellow>{items-used}/{items-limit}</yellow>"
+    - "<!i><gray>Extra emeralds:</gray> <yellow>{extra-emeralds-amount}</yellow>"
+    - "<emeralds-stats>"
+  unit-levels: "levels"
+  unit-points: "points"
   header: "<!i><dark_gray>--- FotiaVillage Trade Limits ---</dark_gray>"
   disabled: "<!i><red>Trade control is disabled</red>"
   trading-disabled: "<!i><red>Villager trading is disabled</red>"

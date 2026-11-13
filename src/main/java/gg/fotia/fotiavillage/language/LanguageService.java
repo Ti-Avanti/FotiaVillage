@@ -3,6 +3,7 @@ package gg.fotia.fotiavillage.language;
 import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.util.LegacyColorConverter;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import gg.fotia.fotiavillage.compat.text.TextCodec;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
@@ -29,6 +30,7 @@ public final class LanguageService {
     private final LegacyComponentSerializer legacySection = LegacyComponentSerializer.legacySection();
     private final Map<String, String> normalizedTemplateCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
     private final Map<String, Component> componentCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
+    private final Map<String, List<String>> templateListCache = synchronizedBoundedCache(FORMATTING_CACHE_SIZE);
     private FileConfiguration language;
     private FileConfiguration defaults;
     private String currentLanguage;
@@ -40,6 +42,7 @@ public final class LanguageService {
     public void load() {
         normalizedTemplateCache.clear();
         componentCache.clear();
+        templateListCache.clear();
         currentLanguage = plugin.settings().language();
         File langFile = new File(plugin.getDataFolder(), "languages/" + currentLanguage + ".yml");
         if (!langFile.exists()) {
@@ -60,13 +63,27 @@ public final class LanguageService {
     }
 
     public List<Component> components(String key, Map<String, ?> replacements) {
-        return templateList(key).stream()
+        return templates(key).stream()
             .map(template -> formattedComponent(template, replacements))
             .toList();
     }
 
     public String legacyText(String value) {
         return legacySection.serialize(formattedComponent(value, Map.of()));
+    }
+
+    public Component loreComponent(String template, Map<String, ?> replacements) {
+        Component component = formattedComponent(template, replacements);
+        return component.style().decoration(TextDecoration.ITALIC) == TextDecoration.State.NOT_SET
+            ? component.decoration(TextDecoration.ITALIC, false) : component;
+    }
+
+    public boolean hasConfiguredTemplate(String key) {
+        return language.isSet(key);
+    }
+
+    public List<String> templates(String key) {
+        return templateListCache.computeIfAbsent(key, this::readTemplates);
     }
 
     public String plain(String key) {
@@ -176,12 +193,13 @@ public final class LanguageService {
         return value == null ? "<!i><red>" + key + "</red>" : value;
     }
 
-    private List<String> templateList(String key) {
-        List<String> values = language.getStringList(key);
-        if (values.isEmpty() && defaults != null) {
-            values = defaults.getStringList(key);
+    private List<String> readTemplates(String key) {
+        try {
+            return MessageTemplates.read(language, defaults, key);
+        } catch (IllegalArgumentException ex) {
+            plugin.getLogger().warning(plain("language.invalid-lines", Map.of("path", key)));
+            return MessageTemplates.read(null, defaults, key);
         }
-        return values.isEmpty() ? List.of(template(key)) : values;
     }
 
     private String applyReplacements(String value, Map<String, ?> replacements, boolean escapeMiniMessageTags) {
@@ -217,7 +235,8 @@ public final class LanguageService {
         }
         boolean changed = false;
         for (String key : defaults.getKeys(true)) {
-            if (defaults.get(key) instanceof ConfigurationSection || language.isSet(key)) {
+            // 完整布局必须由旧用户显式启用，不能随补齐语言键自动覆盖旧布局。
+            if (key.equals("trade-gui.lore") || defaults.get(key) instanceof ConfigurationSection || language.isSet(key)) {
                 continue;
             }
             language.set(key, defaults.get(key));

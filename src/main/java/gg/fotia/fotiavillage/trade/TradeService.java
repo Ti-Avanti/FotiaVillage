@@ -4,10 +4,13 @@ import gg.fotia.fotiavillage.FotiaVillagePlugin;
 import gg.fotia.fotiavillage.compat.VillagerRegistry;
 import gg.fotia.fotiavillage.compat.MerchantCompat;
 import gg.fotia.fotiavillage.config.FotiaSettings;
+import gg.fotia.fotiavillage.trade.lore.TradeLoreContext;
+import gg.fotia.fotiavillage.trade.lore.TradeLoreRenderer;
 import gg.fotia.fotiavillage.util.ExperienceUtil;
 import gg.fotia.fotiavillage.util.TimeUtil;
 import gg.fotia.fotiavillage.util.TradeRecipeUtil;
 import io.papermc.paper.event.player.PlayerTradeEvent;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Player;
@@ -47,6 +50,7 @@ public final class TradeService implements Listener {
     private final CooldownService cooldowns;
     private final CostScalingService scaling;
     private final TradeRecipeUtil tradeRecipes;
+    private final TradeLoreRenderer loreRenderer;
     private final Map<UUID, Villager> tradeGuiSessions = new HashMap<>();
     private final TradeClickTracker clickTracker;
     private final Set<UUID> pendingTradeDisplayCleanup = new HashSet<>();
@@ -59,6 +63,7 @@ public final class TradeService implements Listener {
         this.cooldowns = cooldowns;
         this.scaling = scaling;
         this.tradeRecipes = new TradeRecipeUtil(plugin);
+        this.loreRenderer = new TradeLoreRenderer(plugin.language()::templates, plugin.language()::loreComponent);
         this.clickTracker = new TradeClickTracker(plugin, tradeRecipes);
     }
 
@@ -467,7 +472,7 @@ public final class TradeService implements Listener {
         if (result.getType().isAir()) {
             return tradeRecipes.copyRecipe(recipe, result);
         }
-        List<String> info = tradeInfoLore(player, profession, recipe);
+        List<Component> info = tradeInfoLore(player, profession, recipe);
         if (info.isEmpty()) {
             return tradeRecipes.copyRecipe(recipe, result);
         }
@@ -475,87 +480,82 @@ public final class TradeService implements Listener {
         if (meta == null) {
             return tradeRecipes.copyRecipe(recipe, result);
         }
-        List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<Component> originalLore = meta.lore();
+        List<Component> lore = originalLore == null ? new ArrayList<>() : new ArrayList<>(originalLore);
         int originalLoreSize = lore.size();
         lore.addAll(info);
         tradeRecipes.markResult(meta, originalLoreSize);
-        meta.setLore(lore);
+        meta.lore(lore);
         result.setItemMeta(meta);
         return tradeRecipes.copyRecipe(recipe, result);
     }
 
-    private List<String> tradeInfoLore(Player player, String profession, MerchantRecipe recipe) {
+    private List<Component> tradeInfoLore(Player player, String profession, MerchantRecipe recipe) {
         FotiaSettings.TradeControl trade = plugin.settings().tradeControl();
         FotiaSettings.TradeGuiDisplay display = trade.guiDisplay();
         if (!display.enabled()) {
             return List.of();
         }
-        List<String> lines = new ArrayList<>();
+        boolean customLayout = plugin.language().hasConfiguredTemplate("trade-gui.lore");
+        if (!trade.enabled() || trade.disableTrading()) {
+            String status = trade.enabled() ? "trade-gui.trading-disabled" : "trade-gui.disabled";
+            return loreRenderer.render(new TradeLoreContext(Map.of(), Map.of(), status), customLayout);
+        }
         ItemStack result = tradeRecipes.stripTradeGuiInfo(recipe.getResult().clone());
         String itemType = result.getType().name();
-        if (!trade.enabled()) {
-            lines.add(plugin.language().legacy("trade-gui.disabled", Map.of()));
-            return lines;
-        }
-        if (trade.disableTrading()) {
-            lines.add(plugin.language().legacy("trade-gui.trading-disabled", Map.of()));
-            return lines;
-        }
+        TradeLoreContext.Builder context = new TradeLoreContext.Builder();
 
         if (display.showExpCost() && trade.expCost().enabled()) {
             int expCost = calculateExpCost(player, profession, itemType);
-            String key = trade.expCost().costMode() == FotiaSettings.CostMode.POINTS ? "trade-gui.exp-cost-points" : "trade-gui.exp-cost-levels";
-            lines.add(plugin.language().legacy(key, Map.of("amount", expCost)));
+            boolean points = trade.expCost().costMode() == FotiaSettings.CostMode.POINTS;
+            context.values(Map.of("exp-amount", expCost,
+                "exp-unit", plugin.language().plain(points ? "trade-gui.unit-points" : "trade-gui.unit-levels")));
+            context.section("exp-cost", points ? "exp-cost-points" : "exp-cost-levels", Map.of("amount", expCost));
         }
         if (display.showExpMultiplier() && (trade.costScaling().enabled() || trade.permissionGroupsEnabled())) {
             double scalingMultiplier = scaling.currentMultiplier(player, itemType);
             double groupMultiplier = groups.group(player).expCostMultiplier();
             double totalMultiplier = scalingMultiplier * groupMultiplier;
-            lines.add(plugin.language().legacy("trade-gui.exp-multiplier", Map.of(
+            context.values(Map.of("exp-multiplier", formatMultiplier(totalMultiplier),
+                "scaling", formatMultiplier(scalingMultiplier), "group", formatMultiplier(groupMultiplier)));
+            context.section("exp-multiplier", "exp-multiplier", Map.of(
                 "multiplier", formatMultiplier(totalMultiplier),
                 "scaling", formatMultiplier(scalingMultiplier),
                 "group", formatMultiplier(groupMultiplier)
-            )));
+            ));
         }
         if (display.showCooldown() && trade.cooldown().enabled()) {
             long remaining = cooldowns.remaining(player, profession, itemType);
             int configuredSeconds = cooldowns.cooldownSeconds(player, profession, itemType);
-            if (remaining > 0L) {
-                lines.add(plugin.language().legacy("trade-gui.cooldown-remaining", Map.of("time", plugin.language().formatDuration(remaining))));
-            } else if (configuredSeconds > 0) {
-                lines.add(plugin.language().legacy("trade-gui.cooldown-next", Map.of("time", plugin.language().formatDuration(configuredSeconds * 1000L))));
+            if (remaining > 0L || configuredSeconds > 0) {
+                String time = plugin.language().formatDuration(remaining > 0L ? remaining : configuredSeconds * 1000L);
+                context.values(Map.of("cooldown", time));
+                context.section("cooldown", remaining > 0L ? "cooldown-remaining" : "cooldown-next", Map.of("time", time));
             }
         }
         if (display.showLimits() && trade.limit().enabled()) {
-            addLimitLine(lines, "trade-gui.limit-global", limits.globalStatus(player));
-            addLimitLine(lines, "trade-gui.limit-profession", limits.professionStatus(player, profession));
-            addLimitLine(lines, "trade-gui.limit-item", limits.itemStatus(player, itemType));
+            addLimitSection(context, "global", "global", limits.globalStatus(player));
+            addLimitSection(context, "profession", "jobs", limits.professionStatus(player, profession));
+            addLimitSection(context, "item", "items", limits.itemStatus(player, itemType));
         }
         if (display.showExtraEmeralds() && trade.economyBalance().enabled()) {
             int extraEmeralds = economy.requiredExtraEmeralds(result);
             if (extraEmeralds > 0) {
                 EconomyBalanceService.ExtraEmeraldStatus status = economy.extraEmeraldStatus(player, recipe, extraEmeralds);
-                lines.add(plugin.language().legacy("trade-gui.extra-emeralds", Map.of("amount", extraEmeralds)));
-                if (status.missing() > 0) {
-                    lines.add(plugin.language().legacy("trade-gui.extra-emeralds-missing", Map.of(
-                        "available", status.available(),
-                        "missing", status.missing()
-                    )));
-                } else {
-                    lines.add(plugin.language().legacy("trade-gui.extra-emeralds-available", Map.of("available", status.available())));
-                }
+                context.values(Map.of("extra-emeralds-amount", extraEmeralds,
+                    "emeralds-available", status.available(), "emeralds-missing", status.missing()));
+                context.section("extra-emeralds", "extra-emeralds", Map.of("amount", extraEmeralds));
+                context.section("emeralds-stats", status.missing() > 0 ? "extra-emeralds-missing" : "extra-emeralds-available",
+                    Map.of("available", status.available(), "missing", status.missing()));
             }
         }
-        if (lines.isEmpty()) {
-            return List.of();
-        }
-        lines.add(0, plugin.language().legacy("trade-gui.header", Map.of()));
-        return lines;
+        return loreRenderer.render(context.build(), customLayout);
     }
 
-    private void addLimitLine(List<String> lines, String key, TradeLimitService.LimitStatus status) {
+    private void addLimitSection(TradeLoreContext.Builder context, String name, String variable, TradeLimitService.LimitStatus status) {
         if (status.enabled()) {
-            lines.add(plugin.language().legacy(key, Map.of("used", status.used(), "limit", status.limit())));
+            context.values(Map.of(variable + "-used", status.used(), variable + "-limit", status.limit()));
+            context.section("limit-" + name, "limit-" + name, Map.of("used", status.used(), "limit", status.limit()));
         }
     }
 

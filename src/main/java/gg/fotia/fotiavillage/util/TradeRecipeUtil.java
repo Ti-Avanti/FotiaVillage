@@ -2,6 +2,7 @@ package gg.fotia.fotiavillage.util;
 
 import gg.fotia.fotiavillage.compat.MerchantPriceCompat;
 import gg.fotia.fotiavillage.compat.LegacyMerchantRecipes;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Villager;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -53,11 +54,11 @@ public final class TradeRecipeUtil {
             return item;
         }
         Integer originalLoreSize = container.get(loreSizeKey, PersistentDataType.INTEGER);
-        List<String> lore = meta.getLore();
+        List<Component> lore = meta.lore();
         if (originalLoreSize == null || originalLoreSize <= 0 || lore == null) {
-            meta.setLore(null);
+            meta.lore(null);
         } else if (originalLoreSize < lore.size()) {
-            meta.setLore(new ArrayList<>(lore.subList(0, originalLoreSize)));
+            meta.lore(new ArrayList<>(lore.subList(0, originalLoreSize)));
         }
         container.remove(markerKey);
         container.remove(loreSizeKey);

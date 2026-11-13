@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gg.fotia</groupId>
     <artifactId>fotiavillage-parent</artifactId>
-    <version>1.1.7</version>
+    <version>1.1.8</version>
     <packaging>pom</packaging>
     <modules>
         <module>legacy-text</module>

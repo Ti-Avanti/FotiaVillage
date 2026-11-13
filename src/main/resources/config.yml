@@ -322,6 +322,7 @@ trade-control:
 
   # 普通村民交易界面信息显示
   # 只显示在普通村民交易结果物品说明上，不会显示到 Shopkeepers 商店 GUI。
+  # 完整多行布局在 languages/<语言>.yml 的 trade-gui.lore 中配置；下面开关同样适用于模板变量。
   gui-display:
     enabled: true
     # 显示本次交易需要消耗的经验
